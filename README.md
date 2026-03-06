@@ -1,16 +1,77 @@
-# React + Vite
+# 🚨 SIGMAFAM
+### Sistema Integral de Seguridad Familiar
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SIGMAFAM es una plataforma web + dispositivo IoT diseñada para monitoreo y gestión de alertas en tiempo real dentro de un núcleo familiar.  
 
-Currently, two official plugins are available:
+Permite recibir, visualizar y administrar alertas generadas desde un dispositivo portátil conectado a red móvil, mostrando ubicación, estado y métricas operativas en un panel centralizado.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 🧠 Descripción General
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+El sistema está compuesto por:
 
-## Expanding the ESLint configuration
+- 🌐 **Web App (SPA tipo SaaS)**
+- 📡 **Dispositivo IoT (ESP32 + GSM)**
+- 🗺 Visualización en tiempo real de alertas
+- 👥 Gestión de usuarios y roles
+- 📊 Panel administrativo y métricas
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🏗 Arquitectura
+
+Frontend:
+- React + Vite
+- TailwindCSS
+- React Router
+- React Context (State Management)
+- Leaflet + React-Leaflet (Mapas)
+
+Backend (en desarrollo):
+- Node.js / Express o FastAPI
+- Base de datos relacional
+- API REST
+- Autenticación JWT
+
+IoT (en desarrollo):
+- ESP32
+- SIM808L (GSM/GPRS)
+- Comunicación HTTP hacia API
+
+---
+
+## 👤 Roles del Sistema
+
+- **ADMIN** → Control total del sistema
+- **JEFE_FAMILIA** → Gestión de miembros y contactos
+- **MIEMBRO** → Dispositivo vinculado y generación de alertas
+
+---
+
+## 📌 Módulos Implementados
+
+- Dashboard dinámico
+- Gestión de alertas
+- Drawer con detalle de alerta
+- Mini mapa en tiempo real
+- Mapa full con marcador activo
+- Simulación de alertas
+- Estados: RECEIVED / ACTIVE / ATTENDED / CLOSED
+
+---
+
+## 🗺 Mapa en Vivo
+
+Se utiliza OpenStreetMap mediante Leaflet.
+
+Características:
+- Marcador dinámico según alerta seleccionada
+- Mini mapa en panel lateral
+- Preparado para actualización en tiempo real
+
+---
+
+## 🚀 ¿Cuando sale la versión oficial?
+
+Espero que dentro de poco, estoy poniendo mucho esfuerzo, ganas y en general, me apasiona este proyecto.

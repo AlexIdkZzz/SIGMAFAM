@@ -43,7 +43,7 @@ export default function Sidebar() {
       </div>
 
       <div className="mt-6 px-3 py-2 text-xs text-slate-400">
-        Tip: cambia rol en Login
+        hola
       </div>
     </aside>
   );

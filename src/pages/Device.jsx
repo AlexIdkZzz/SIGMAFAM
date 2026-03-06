@@ -18,7 +18,7 @@ export default function Device() {
           </div>
         </Card>
 
-        <Card title="Vincular nuevo dispositivo (Regla B)">
+        <Card title="Vincular nuevo dispositivo">
           {hasDevice ? (
             <div className="text-sm text-slate-600">
               Ya existe un dispositivo vinculado. Para cambiarlo, primero desvincula el actual.

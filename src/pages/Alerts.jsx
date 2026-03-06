@@ -1,26 +1,22 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageShell, Card, Pill, Button } from "./_ui";
 import Drawer from "./_drawer";
 import ConfirmModal from "./_modal";
 import { useAlerts } from "../app/alerts/AlertsContext";
 import MiniMap from "../app/maps/MiniMap";
-import { useNavigate } from "react-router-dom";
 
 function fmtTime(iso) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  } catch {
-    return iso;
-  }
+  try { return new Date(iso).toLocaleString("es-MX"); }
+  catch { return iso; }
 }
 
 function StatusPill({ status }) {
-  if (status === "ACTIVE") return <Pill variant="red">ACTIVE</Pill>;
-  if (status === "RECEIVED") return <Pill variant="yellow">RECEIVED</Pill>;
-  if (status === "ATTENDED") return <Pill variant="blue">ATTENDED</Pill>;
-  if (status === "CLOSED") return <Pill variant="green">CLOSED</Pill>;
-  return <Pill>UNKNOWN</Pill>;
+  if (status === "ACTIVE")   return <Pill variant="red">ACTIVA</Pill>;
+  if (status === "RECEIVED") return <Pill variant="yellow">RECIBIDA</Pill>;
+  if (status === "ATTENDED") return <Pill variant="blue">ATENDIDA</Pill>;
+  if (status === "CLOSED")   return <Pill variant="green">CERRADA</Pill>;
+  return <Pill>—</Pill>;
 }
 
 function SourcePill({ source }) {
@@ -28,17 +24,15 @@ function SourcePill({ source }) {
 }
 
 export default function Alerts() {
+  const nav = useNavigate(); // ✅ fuera del .map()
   const {
-    alerts,
-    selected,
-    selectedId,
-    selectAlert,
-    simulateIncomingAlert,
-    markAttended,
-    closeAlert,
+    alerts, selected, selectedId,
+    loading, error,
+    selectAlert, simulateIncomingAlert,
+    markAttended, closeAlert, refreshActive,
   } = useAlerts();
 
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen]   = useState(true);
   const [confirmClose, setConfirmClose] = useState(false);
 
   const activeCount = useMemo(
@@ -49,9 +43,12 @@ export default function Alerts() {
   return (
     <PageShell
       title="Alertas"
-      subtitle={`Alertas activas y recientes. Activas: ${activeCount}`}
+      subtitle={`Alertas activas y recientes · Activas: ${activeCount}`}
       right={
         <div className="flex gap-2">
+          <Button variant="outline" onClick={refreshActive} disabled={loading}>
+            {loading ? "Cargando…" : "Actualizar"}
+          </Button>
           <Button variant="outline" onClick={() => setDrawerOpen((v) => !v)}>
             {drawerOpen ? "Ocultar detalle" : "Ver detalle"}
           </Button>
@@ -59,6 +56,13 @@ export default function Alerts() {
         </div>
       }
     >
+      {/* Error banner */}
+      {error && (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-2">
+          {error}
+        </div>
+      )}
+
       <Card>
         <div className="overflow-auto">
           <table className="w-full text-sm">
@@ -74,77 +78,61 @@ export default function Alerts() {
             </thead>
 
             <tbody className="text-slate-800">
-              {alerts.map((a) => {
-                const nav = useNavigate();
-                const isSel = a.id === selectedId;
-                return (
-                  <tr
-                    key={a.id}
-                    className={[
-                      "border-b border-slate-100 cursor-pointer",
-                      isSel ? "bg-blue-50/50" : "hover:bg-slate-50",
-                    ].join(" ")}
-                    onClick={() => {
-                      selectAlert(a.id);
-                      setDrawerOpen(true);
-                    }}
-                  >
-                    <td className="py-3 pr-3 font-semibold">{a.id}</td>
-                    <td className="py-3 pr-3">{a.user}</td>
-                    <td className="py-3 pr-3">{fmtTime(a.createdAt)}</td>
-                    <td className="py-3 pr-3">
-                      <SourcePill source={a.source} />
-                    </td>
-                    <td className="py-3 pr-3">
-                      <StatusPill status={a.status} />
-                    </td>
-                    <td className="py-3 pr-3">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-white text-xs font-semibold"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            selectAlert(a.id);
-                            setDrawerOpen(true);
-                          }}
-                        >
-                          Ver
-                        </button>
-
-                        <button
-                          className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            selectAlert(a.id);
-                            nav("/app/map");
-                          }}
-                        >
-                          Mapa
-                        </button>
-
-                        <button
-                          className="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            selectAlert(a.id);
-                            setConfirmClose(true);
-                          }}
-                        >
-                          Cerrar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {alerts.length === 0 ? (
+              {loading && alerts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
-                    No hay alertas todavía.
+                  <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                    Cargando alertas…
                   </td>
                 </tr>
-              ) : null}
+              ) : alerts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
+                    No hay alertas activas.
+                  </td>
+                </tr>
+              ) : (
+                alerts.map((a) => {
+                  const isSel = a.id === selectedId;
+                  return (
+                    <tr
+                      key={a.id}
+                      className={[
+                        "border-b border-slate-100 cursor-pointer",
+                        isSel ? "bg-blue-50/50" : "hover:bg-slate-50",
+                      ].join(" ")}
+                      onClick={() => { selectAlert(a.id); setDrawerOpen(true); }}
+                    >
+                      <td className="py-3 pr-3 font-semibold">#{a.id}</td>
+                      <td className="py-3 pr-3">{a.user}</td>
+                      <td className="py-3 pr-3">{fmtTime(a.createdAt)}</td>
+                      <td className="py-3 pr-3"><SourcePill source={a.source} /></td>
+                      <td className="py-3 pr-3"><StatusPill status={a.status} /></td>
+                      <td className="py-3 pr-3">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-white text-xs font-semibold"
+                            onClick={(e) => { e.stopPropagation(); selectAlert(a.id); setDrawerOpen(true); }}
+                          >
+                            Ver
+                          </button>
+                          <button
+                            className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                            onClick={(e) => { e.stopPropagation(); selectAlert(a.id); nav("/app/map"); }}
+                          >
+                            Mapa
+                          </button>
+                          <button
+                            className="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+                            onClick={(e) => { e.stopPropagation(); selectAlert(a.id); setConfirmClose(true); }}
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -168,18 +156,23 @@ export default function Alerts() {
             </div>
 
             <Card title="Última ubicación">
-              <div className="text-sm text-slate-700">
-                <div><b>Lat:</b> {selected.lastLocation.lat}</div>
-                <div><b>Lng:</b> {selected.lastLocation.lng}</div>
-                <div><b>Hora:</b> {fmtTime(selected.lastLocation.at)}</div>
-              </div>
-              <MiniMap lat={selected.lastLocation.lat} lng={selected.lastLocation.lng} />
+              {selected.lastLocation ? (
+                <>
+                  <div className="text-sm text-slate-700 mb-2">
+                    <div><b>Lat:</b> {selected.lastLocation.lat}</div>
+                    <div><b>Lng:</b> {selected.lastLocation.lng}</div>
+                    <div><b>Hora:</b> {fmtTime(selected.lastLocation.at)}</div>
+                  </div>
+                  <MiniMap lat={selected.lastLocation.lat} lng={selected.lastLocation.lng} />
+                </>
+              ) : (
+                <div className="text-sm text-slate-400">Sin ubicación registrada.</div>
+              )}
             </Card>
 
             <Card title="Dispositivo">
-              <div className="text-sm text-slate-700 space-y-1">
+              <div className="text-sm text-slate-700">
                 <div><b>Batería:</b> {typeof selected.battery === "number" ? `${selected.battery}%` : "N/A"}</div>
-                <div><b>Notas:</b> Placeholder (luego metemos logs/errores).</div>
               </div>
             </Card>
 
@@ -199,25 +192,18 @@ export default function Alerts() {
                 Cerrar alerta
               </Button>
             </div>
-
-            <div className="text-xs text-slate-500">
-              luego conectamos “Mapa” con /app/map y el mini mapa con Leaflet.
-            </div>
           </div>
         )}
       </Drawer>
 
-      {/* Confirm cerrar */}
+      {/* Confirmar cerrar */}
       <ConfirmModal
         open={confirmClose}
         title="Cerrar alerta"
-        desc="¿Seguro que quieres cerrar esta alerta? Esto cambiará su estado a CLOSED."
+        desc="¿Seguro que quieres cerrar esta alerta? Cambiará su estado a CERRADA."
         confirmText="Sí, cerrar"
         onClose={() => setConfirmClose(false)}
-        onConfirm={() => {
-          if (selected) closeAlert(selected.id);
-          setConfirmClose(false);
-        }}
+        onConfirm={() => { if (selected) closeAlert(selected.id); setConfirmClose(false); }}
       />
     </PageShell>
   );

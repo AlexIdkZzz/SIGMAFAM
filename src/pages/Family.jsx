@@ -8,7 +8,7 @@ export default function Family() {
       subtitle="Miembros y roles (solo ADMIN/JEFE)."
       right={<Button>Agregar miembro</Button>}
     >
-      <Card>Tabla de miembros aquí.</Card>
+      <Card>Tabla de miembros aquí.</Card> /* hay que reemplazar con tabla real */
     </PageShell>
   );
 }

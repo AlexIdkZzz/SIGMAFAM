@@ -8,7 +8,6 @@ export default function Topbar() {
     <header className="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between">
       <div className="font-extrabold tracking-wide text-slate-900">
         SIGMAFAM
-        <span className="ml-2 text-xs font-semibold text-slate-500">SPA</span>
       </div>
 
       <div className="flex items-center gap-3">
