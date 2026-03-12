@@ -41,17 +41,27 @@ export function Pill({ children, variant = "slate" }) {
 }
 
 export function Button({ children, variant = "primary", ...props }) {
-  const styles = {
+  const [hovered, setHovered] = React.useState(false);
+
+  const base = {
     primary: { background: "#2563eb", color: "#ffffff" },
     danger:  { background: "#dc2626", color: "#ffffff" },
     outline: { background: "#ffffff", color: "#0f172a", border: "1px solid #e2e8f0" },
   }[variant] ?? { background: "#2563eb", color: "#ffffff" };
 
+  const hover = {
+    primary: { background: "#1d4ed8" },
+    danger:  { background: "#b91c1c" },
+    outline: { background: "#f8fafc" },
+  }[variant] ?? { background: "#1d4ed8" };
+
   return (
     <button
       {...props}
-      style={styles}
+      style={{ ...base, ...(hovered ? hover : {}) }}
       className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       {children}
     </button>
