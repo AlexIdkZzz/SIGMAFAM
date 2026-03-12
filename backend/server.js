@@ -421,6 +421,73 @@ app.post("/api/v1/devices/register", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/v1/stats  (JWT)
+ * Devuelve métricas generales del sistema.
+ */
+app.get("/api/v1/stats", authRequired, async (req, res) => {
+  try {
+    // 1) Totales por estado
+    const [byStatus] = await pool.execute(
+      `SELECT status, COUNT(*) AS total
+       FROM alerts
+       GROUP BY status`
+    );
+
+    // 2) Alertas por día — últimos 30 días
+    const [byDay] = await pool.execute(
+      `SELECT DATE(created_at) AS day, COUNT(*) AS total
+       FROM alerts
+       WHERE created_at >= NOW() - INTERVAL 30 DAY
+       GROUP BY DATE(created_at)
+       ORDER BY day ASC`
+    );
+
+    // 3) Alertas por origen
+    const [bySource] = await pool.execute(
+      `SELECT source, COUNT(*) AS total
+       FROM alerts
+       GROUP BY source`
+    );
+
+    // 4) Top ubicaciones con más alertas (para mapa de calor) :)
+    const [hotspots] = await pool.execute(
+      `SELECT
+         ROUND(lat, 3) AS lat,
+         ROUND(lng, 3) AS lng,
+         COUNT(*) AS intensity
+       FROM alert_locations
+       GROUP BY ROUND(lat, 3), ROUND(lng, 3)
+       ORDER BY intensity DESC
+       LIMIT 50`
+    );
+
+    // 5) Tiempo promedio de atención (alertas cerradas)
+    const [avgTime] = await pool.execute(
+      `SELECT ROUND(AVG(TIMESTAMPDIFF(MINUTE, created_at, closed_at)), 1) AS avg_minutes
+       FROM alerts
+       WHERE status = 'CLOSED' AND closed_at IS NOT NULL`
+    );
+
+    // 6) Total general
+    const [total] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM alerts`
+    );
+
+    return res.json({
+      total: total[0].total,
+      avgResponseMinutes: avgTime[0].avg_minutes ?? 0,
+      byStatus,
+      byDay,
+      bySource,
+      hotspots,
+    });
+  } catch (e) {
+    console.error("[Stats]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`✅ SIGMAFAM API running → http://localhost:${PORT}`);
