@@ -25,34 +25,44 @@ export function Card({ title, children }) {
 }
 
 export function Pill({ children, variant = "slate" }) {
-  if (variant === "red")
-    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-red-50 text-red-700 border-red-200">{children}</span>;
-  if (variant === "green")
-    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-emerald-50 text-emerald-700 border-emerald-200">{children}</span>;
-  if (variant === "yellow")
-    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-amber-50 text-amber-700 border-amber-200">{children}</span>;
-  if (variant === "blue")
-    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-blue-50 text-blue-700 border-blue-200">{children}</span>;
-  // slate (default)
-  return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-slate-100 text-slate-700 border-slate-200">{children}</span>;
+  const styles = {
+    red:    { background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" },
+    green:  { background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" },
+    yellow: { background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a" },
+    blue:   { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" },
+    slate:  { background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0" },
+  }[variant] ?? { background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0" };
+
+  return (
+    <span style={styles} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs">
+      {children}
+    </span>
+  );
 }
 
 export function Button({ children, variant = "primary", ...props }) {
-  if (variant === "danger")
-    return (
-      <button {...props} className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed">
-        {children}
-      </button>
-    );
-  if (variant === "outline")
-    return (
-      <button {...props} className="px-4 py-2 rounded-xl text-sm font-semibold transition border border-slate-200 hover:bg-slate-50 text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed">
-        {children}
-      </button>
-    );
-  // primary (default)
+  const [hovered, setHovered] = React.useState(false);
+
+  const base = {
+    primary: { background: "#2563eb", color: "#ffffff" },
+    danger:  { background: "#dc2626", color: "#ffffff" },
+    outline: { background: "#ffffff", color: "#0f172a", border: "1px solid #e2e8f0" },
+  }[variant] ?? { background: "#2563eb", color: "#ffffff" };
+
+  const hover = {
+    primary: { background: "#1d4ed8" },
+    danger:  { background: "#b91c1c" },
+    outline: { background: "#f8fafc" },
+  }[variant] ?? { background: "#1d4ed8" };
+
   return (
-    <button {...props} className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+    <button
+      {...props}
+      style={{ ...base, ...(hovered ? hover : {}) }}
+      className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       {children}
     </button>
   );
