@@ -25,33 +25,34 @@ export function Card({ title, children }) {
 }
 
 export function Pill({ children, variant = "slate" }) {
-  const styles = {
-    slate: "bg-slate-100 text-slate-700 border-slate-200",
-    red: "bg-red-50 text-red-700 border-red-200",
-    green: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    yellow: "bg-amber-50 text-amber-700 border-amber-200",
-    blue: "bg-blue-50 text-blue-700 border-blue-200",
-  }[variant];
-
-  return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs border ${styles}`}>
-      {children}
-    </span>
-  );
+  if (variant === "red")
+    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-red-50 text-red-700 border-red-200">{children}</span>;
+  if (variant === "green")
+    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-emerald-50 text-emerald-700 border-emerald-200">{children}</span>;
+  if (variant === "yellow")
+    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-amber-50 text-amber-700 border-amber-200">{children}</span>;
+  if (variant === "blue")
+    return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-blue-50 text-blue-700 border-blue-200">{children}</span>;
+  // slate (default)
+  return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border bg-slate-100 text-slate-700 border-slate-200">{children}</span>;
 }
 
 export function Button({ children, variant = "primary", ...props }) {
-  const cls = {
-    primary: "bg-blue-600 hover:bg-blue-700 text-white",
-    danger: "bg-red-600 hover:bg-red-700 text-white",
-    outline: "border border-slate-200 hover:bg-slate-50 text-slate-900",
-  }[variant];
-
+  if (variant === "danger")
+    return (
+      <button {...props} className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+        {children}
+      </button>
+    );
+  if (variant === "outline")
+    return (
+      <button {...props} className="px-4 py-2 rounded-xl text-sm font-semibold transition border border-slate-200 hover:bg-slate-50 text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed">
+        {children}
+      </button>
+    );
+  // primary (default)
   return (
-    <button
-      {...props}
-      className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${cls}`}
-    >
+    <button {...props} className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed">
       {children}
     </button>
   );

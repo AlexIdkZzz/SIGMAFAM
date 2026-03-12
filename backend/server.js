@@ -166,24 +166,26 @@ app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
     const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit ?? 20)));
     const offset = (page - 1) * limit;
 
-    // Filtros opcionales
     const statusFilter = req.query.status?.toUpperCase();
     const sourceFilter = req.query.source?.toUpperCase();
 
     const validStatuses = ["RECEIVED", "ACTIVE", "ATTENDED", "CLOSED"];
     const validSources  = ["IOT", "WEB"];
 
-    let where = "1=1";
-    const params = {};
+    // Construir WHERE dinámico con ? en lugar de named placeholders
+    const conditions = ["1=1"];
+    const params     = [];
 
     if (statusFilter && validStatuses.includes(statusFilter)) {
-      where += " AND a.status = :status";
-      params.status = statusFilter;
+      conditions.push("a.status = ?");
+      params.push(statusFilter);
     }
     if (sourceFilter && validSources.includes(sourceFilter)) {
-      where += " AND a.source = :source";
-      params.source = sourceFilter;
+      conditions.push("a.source = ?");
+      params.push(sourceFilter);
     }
+
+    const where = conditions.join(" AND ");
 
     // Total para paginación
     const [countRows] = await pool.execute(
@@ -192,7 +194,7 @@ app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
     );
     const total = countRows[0].total;
 
-    // Registros de la página
+    // Registros — LIMIT y OFFSET como ? para evitar bug de mysql2 con namedPlaceholders
     const [rows] = await pool.execute(
       `SELECT
          a.id, a.source, a.status, a.created_at, a.closed_at,
@@ -208,8 +210,8 @@ app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
        )
        WHERE ${where}
        ORDER BY a.created_at DESC
-       LIMIT :limit OFFSET :offset`,
-      { ...params, limit, offset }
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
     );
 
     return res.json({
