@@ -210,8 +210,8 @@ app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
        )
        WHERE ${where}
        ORDER BY a.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${limit} OFFSET ${offset}`,
+            params
     );
 
     return res.json({
