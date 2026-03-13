@@ -433,20 +433,18 @@ app.get("/api/v1/stats", authRequired, async (req, res) => {
 /**
  * ═══════════════════════════════════════════════════════════════
  * VERIFICACIÓN DE EMAIL CON SENDGRID
- * Agregar en server.js antes de app.listen()
- *
- * Instalar dependencia:
- *   npm install @sendgrid/mail
- *
- * Variables de entorno a agregar en Railway:
- *   SENDGRID_API_KEY=SG.xxxxxxxxxxxx
- *   SENDGRID_FROM=tucorreo@gmail.com
- *   FRONTEND_URL=https://sigmafam.vercel.app
+ * - Al registrarse, el usuario recibe un código de 6 dígitos por correo.
  * ═══════════════════════════════════════════════════════════════
  */
 
-const sgMail = require("@sendgrid/mail");
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const nodemailer = require("nodemailer");
+const mailer = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
+  },
+});
 
 // ── Helper: generar código de 6 dígitos ──────────────────────────
 function generateCode() {
@@ -455,84 +453,69 @@ function generateCode() {
 
 // ── Helper: enviar correo de verificación ────────────────────────
 async function sendVerificationEmail(email, fullName, code) {
-  const msg = {
-    to: email,
-    from: {
-      email: process.env.SENDGRID_FROM,
-      name: "SIGMAFAM",
-    },
-    subject: "Verifica tu cuenta — SIGMAFAM",
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
-            <tr>
-              <td align="center">
-                <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
-                  
-                  <!-- Header -->
-                  <tr>
-                    <td style="background:#0f172a;padding:24px 32px;">
-                      <table cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="background:#1e293b;border-radius:8px;padding:8px 12px;">
-                            <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.5px;">SIGMAFAM</span>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-
-                  <!-- Body -->
-                  <tr>
-                    <td style="padding:32px;">
-                      <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#0f172a;">
-                        Hola, ${fullName} 👋
-                      </h1>
-                      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6;">
-                        Gracias por registrarte en SIGMAFAM. Usa el siguiente código para verificar tu cuenta:
-                      </p>
-
-                      <!-- Código -->
-                      <div style="background:#f1f5f9;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
-                        <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#0f172a;font-family:monospace;">
-                          ${code}
-                        </div>
-                        <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">
-                          Este código expira en <strong>15 minutos</strong>
-                        </p>
+  await mailer.sendMail({
+  from: `"SIGMAFAM" <${process.env.MAIL_USER}>`,
+  to: email,
+  subject: "Verifica tu cuenta — SIGMAFAM",
+  html: `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
+          <tr>
+            <td align="center">
+              <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
+                <tr>
+                  <td style="background:#0f172a;padding:24px 32px;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="background:#1e293b;border-radius:8px;padding:8px 12px;">
+                          <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.5px;">SIGMAFAM</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:32px;">
+                    <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#0f172a;">
+                      Hola, ${fullName} 👋
+                    </h1>
+                    <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6;">
+                      Gracias por registrarte en SIGMAFAM. Usa el siguiente código para verificar tu cuenta:
+                    </p>
+                    <div style="background:#f1f5f9;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
+                      <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#0f172a;font-family:monospace;">
+                        ${code}
                       </div>
-
-                      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
-                        Si no creaste esta cuenta, puedes ignorar este correo de forma segura.
+                      <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">
+                        Este código expira en <strong>15 minutos</strong>
                       </p>
-                    </td>
-                  </tr>
-
-                  <!-- Footer -->
-                  <tr>
-                    <td style="padding:16px 32px;border-top:1px solid #f1f5f9;">
-                      <p style="margin:0;font-size:12px;color:#cbd5e1;text-align:center;">
-                        © 2026 SIGMAFAM · Sistema Integral de Seguridad Familiar
-                      </p>
-                    </td>
-                  </tr>
-
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-      </html>
-    `,
-  };
-
-  await sgMail.send(msg);
+                    </div>
+                    <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
+                      Si no creaste esta cuenta, puedes ignorar este correo de forma segura.
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 32px;border-top:1px solid #f1f5f9;">
+                    <p style="margin:0;font-size:12px;color:#cbd5e1;text-align:center;">
+                      © 2026 SIGMAFAM · Sistema Integral de Seguridad Familiar
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `,
+});
 }
 
 // ══════════════════════════════════════════════════════════════════
