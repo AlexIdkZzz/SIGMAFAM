@@ -437,6 +437,7 @@ app.get("/api/v1/stats", authRequired, async (req, res) => {
  * ═══════════════════════════════════════════════════════════════
  */
 
+const nodemailer = require("nodemailer");
 const mailer = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
