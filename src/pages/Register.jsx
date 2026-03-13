@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../app/auth/AuthContext";
 
 export default function Register() {
-  const { register, login } = useAuth();
+  const { register } = useAuth();
   const nav = useNavigate();
 
   const [fullName, setFullName] = useState("");
@@ -33,9 +33,8 @@ export default function Register() {
     setLoading(true);
     try {
       await register(fullName.trim(), email.trim(), password);
-      // Auto-login después del registro
-      await login(email.trim(), password);
-      nav("/app/dashboard");
+      // Redirigir a verificación con el email
+      nav("/verify", { state: { email: email.trim() } });
     } catch (err) {
       const msg = err.message ?? "";
       if (msg.includes("EMAIL_EXISTS")) {
@@ -51,8 +50,6 @@ export default function Register() {
   return (
     <div className="min-h-screen grid place-items-center bg-slate-50 p-4">
       <div className="w-full max-w-sm">
-
-        {/* Header */}
         <div className="mb-6 text-center">
           <span className="inline-flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
@@ -65,12 +62,7 @@ export default function Register() {
           <p className="text-sm text-slate-500 mt-2">Crea tu cuenta</p>
         </div>
 
-        {/* Card */}
-        <form
-          onSubmit={onSubmit}
-          className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4"
-        >
-          {/* Error banner */}
+        <form onSubmit={onSubmit} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
           {error && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2">
               <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -80,79 +72,37 @@ export default function Register() {
             </div>
           )}
 
-          {/* Nombre */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Nombre completo
-            </label>
-            <input
-              type="text"
-              autoComplete="name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Yael De Alba"
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
-            />
+            <label className="block text-xs font-medium text-slate-600 mb-1">Nombre completo</label>
+            <input type="text" autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Yael De Alba"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition" />
           </div>
 
-          {/* Email */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Correo electrónico
-            </label>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="correo@ejemplo.com"
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
-            />
+            <label className="block text-xs font-medium text-slate-600 mb-1">Correo electrónico</label>
+            <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@ejemplo.com"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition" />
           </div>
 
-          {/* Password */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
-            />
+            <label className="block text-xs font-medium text-slate-600 mb-1">Contraseña</label>
+            <input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition" />
           </div>
 
-          {/* Confirm password */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Confirmar contraseña
-            </label>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Repite tu contraseña"
+            <label className="block text-xs font-medium text-slate-600 mb-1">Confirmar contraseña</label>
+            <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repite tu contraseña"
               className={`w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
-                confirm && confirm !== password
-                  ? "border-red-300 focus:ring-red-400"
-                  : "border-slate-200 focus:ring-slate-900"
-              }`}
-            />
+                confirm && confirm !== password ? "border-red-300 focus:ring-red-400" : "border-slate-200 focus:ring-slate-900"
+              }`} />
             {confirm && confirm !== password && (
               <p className="text-xs text-red-500 mt-1">Las contraseñas no coinciden</p>
             )}
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-1 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
+          <button type="submit" disabled={loading}
+            className="w-full mt-1 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -166,9 +116,7 @@ export default function Register() {
 
           <p className="text-sm text-slate-500 text-center pt-1">
             ¿Ya tienes cuenta?{" "}
-            <Link to="/login" className="text-slate-900 font-semibold hover:underline">
-              Inicia sesión
-            </Link>
+            <Link to="/login" className="text-slate-900 font-semibold hover:underline">Inicia sesión</Link>
           </p>
         </form>
       </div>

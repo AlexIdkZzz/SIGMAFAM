@@ -15,64 +15,6 @@ app.use(express.json());
 // ── Health ──────────────────────────────────────────────────────────────────
 app.get("/api/v1/health", (req, res) => res.json({ ok: true }));
 
-/* ═══════════════════════════ AUTH ═══════════════════════════ */
-
-app.post("/api/v1/auth/register", async (req, res) => {
-  try {
-    const { full_name, email, password } = req.body || {};
-    if (!full_name || !email || !password)
-      return res.status(400).json({ error: "MISSING_FIELDS" });
-
-    const password_hash = await bcrypt.hash(password, 10);
-
-    await pool.execute(
-      `INSERT INTO users (full_name, email, password_hash)
-       VALUES (:full_name, :email, :password_hash)`,
-      { full_name, email, password_hash }
-    );
-
-    return res.status(201).json({ ok: true });
-  } catch (e) {
-    if (String(e?.code) === "ER_DUP_ENTRY")
-      return res.status(409).json({ error: "EMAIL_EXISTS" });
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
-app.post("/api/v1/auth/login", async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    if (!email || !password)
-      return res.status(400).json({ error: "MISSING_FIELDS" });
-
-    const [rows] = await pool.execute(
-      `SELECT id, full_name, email, password_hash FROM users WHERE email = :email`,
-      { email }
-    );
-
-    const u = rows[0];
-    if (!u) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
-
-    const ok = await bcrypt.compare(password, u.password_hash);
-    if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
-
-    const access_token = jwt.sign(
-      { id: u.id, email: u.email, fullName: u.full_name },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.json({
-      access_token,
-      user: { id: u.id, full_name: u.full_name, email: u.email },
-    });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
 /* ═══════════════════════════ DEVICES ═══════════════════════════ */
 
 app.post("/api/v1/devices/claim", authRequired, async (req, res) => {
@@ -484,6 +426,279 @@ app.get("/api/v1/stats", authRequired, async (req, res) => {
     });
   } catch (e) {
     console.error("[Stats]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * VERIFICACIÓN DE EMAIL CON SENDGRID
+ * Agregar en server.js antes de app.listen()
+ *
+ * Instalar dependencia:
+ *   npm install @sendgrid/mail
+ *
+ * Variables de entorno a agregar en Railway:
+ *   SENDGRID_API_KEY=SG.xxxxxxxxxxxx
+ *   SENDGRID_FROM=tucorreo@gmail.com
+ *   FRONTEND_URL=https://sigmafam.vercel.app
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+const sgMail = require("@sendgrid/mail");
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// ── Helper: generar código de 6 dígitos ──────────────────────────
+function generateCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// ── Helper: enviar correo de verificación ────────────────────────
+async function sendVerificationEmail(email, fullName, code) {
+  const msg = {
+    to: email,
+    from: {
+      email: process.env.SENDGRID_FROM,
+      name: "SIGMAFAM",
+    },
+    subject: "Verifica tu cuenta — SIGMAFAM",
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
+            <tr>
+              <td align="center">
+                <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
+                  
+                  <!-- Header -->
+                  <tr>
+                    <td style="background:#0f172a;padding:24px 32px;">
+                      <table cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="background:#1e293b;border-radius:8px;padding:8px 12px;">
+                            <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.5px;">SIGMAFAM</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <!-- Body -->
+                  <tr>
+                    <td style="padding:32px;">
+                      <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#0f172a;">
+                        Hola, ${fullName} 👋
+                      </h1>
+                      <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6;">
+                        Gracias por registrarte en SIGMAFAM. Usa el siguiente código para verificar tu cuenta:
+                      </p>
+
+                      <!-- Código -->
+                      <div style="background:#f1f5f9;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
+                        <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#0f172a;font-family:monospace;">
+                          ${code}
+                        </div>
+                        <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">
+                          Este código expira en <strong>15 minutos</strong>
+                        </p>
+                      </div>
+
+                      <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
+                        Si no creaste esta cuenta, puedes ignorar este correo de forma segura.
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding:16px 32px;border-top:1px solid #f1f5f9;">
+                      <p style="margin:0;font-size:12px;color:#cbd5e1;text-align:center;">
+                        © 2026 SIGMAFAM · Sistema Integral de Seguridad Familiar
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  };
+
+  await sgMail.send(msg);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODIFICAR el endpoint de registro existente
+// Reemplaza el app.post("/api/v1/auth/register") que ya tienes
+// ══════════════════════════════════════════════════════════════════
+
+app.post("/api/v1/auth/register", async (req, res) => {
+  try {
+    const { full_name, email, password } = req.body || {};
+    if (!full_name || !email || !password)
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const code    = generateCode();
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+    await pool.execute(
+      `INSERT INTO users (full_name, email, password_hash, verified, verify_code, verify_expires)
+       VALUES (:full_name, :email, :password_hash, 0, :code, :expires)`,
+      { full_name, email, password_hash, code, expires }
+    );
+
+    // Enviar correo
+    await sendVerificationEmail(email, full_name, code);
+
+    return res.status(201).json({ ok: true, message: "Código enviado al correo" });
+  } catch (e) {
+    if (String(e?.code) === "ER_DUP_ENTRY")
+      return res.status(409).json({ error: "EMAIL_EXISTS" });
+    console.error("[Register]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════
+// NUEVO endpoint: verificar código
+// POST /api/v1/auth/verify
+// Body: { email, code }
+// ══════════════════════════════════════════════════════════════════
+
+app.post("/api/v1/auth/verify", async (req, res) => {
+  try {
+    const { email, code } = req.body || {};
+    if (!email || !code)
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const [rows] = await pool.execute(
+      `SELECT id, full_name, email, verify_code, verify_expires, verified
+       FROM users WHERE email = :email LIMIT 1`,
+      { email }
+    );
+
+    const u = rows[0];
+    if (!u) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    if (u.verified) return res.status(400).json({ error: "ALREADY_VERIFIED" });
+
+    // Verificar expiración
+    if (new Date() > new Date(u.verify_expires))
+      return res.status(400).json({ error: "CODE_EXPIRED" });
+
+    // Verificar código
+    if (u.verify_code !== code.trim())
+      return res.status(400).json({ error: "INVALID_CODE" });
+
+    // Activar cuenta
+    await pool.execute(
+      `UPDATE users
+       SET verified = 1, verify_code = NULL, verify_expires = NULL
+       WHERE id = :id`,
+      { id: u.id }
+    );
+
+    // Generar JWT para auto-login
+    const access_token = jwt.sign(
+      { id: u.id, email: u.email, fullName: u.full_name },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      ok: true,
+      access_token,
+      user: { id: u.id, full_name: u.full_name, email: u.email },
+    });
+  } catch (e) {
+    console.error("[Verify]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════
+// NUEVO endpoint: reenviar código
+// POST /api/v1/auth/resend
+// Body: { email }
+// ══════════════════════════════════════════════════════════════════
+
+app.post("/api/v1/auth/resend", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const [rows] = await pool.execute(
+      `SELECT id, full_name, verified FROM users WHERE email = :email LIMIT 1`,
+      { email }
+    );
+
+    const u = rows[0];
+    if (!u) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    if (u.verified) return res.status(400).json({ error: "ALREADY_VERIFIED" });
+
+    const code    = generateCode();
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
+
+    await pool.execute(
+      `UPDATE users SET verify_code = :code, verify_expires = :expires WHERE id = :id`,
+      { code, expires, id: u.id }
+    );
+
+    await sendVerificationEmail(email, u.full_name, code);
+
+    return res.json({ ok: true, message: "Código reenviado" });
+  } catch (e) {
+    console.error("[Resend]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════
+// MODIFICAR el endpoint de login para bloquear no verificados
+// Reemplaza el app.post("/api/v1/auth/login") que ya tienes
+// ══════════════════════════════════════════════════════════════════
+
+app.post("/api/v1/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password)
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const [rows] = await pool.execute(
+      `SELECT id, full_name, email, password_hash, verified FROM users WHERE email = :email`,
+      { email }
+    );
+
+    const u = rows[0];
+    if (!u) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+
+    const ok = await bcrypt.compare(password, u.password_hash);
+    if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+
+    // Bloquear si no verificado
+    if (!u.verified)
+      return res.status(403).json({ error: "EMAIL_NOT_VERIFIED" });
+
+    const access_token = jwt.sign(
+      { id: u.id, email: u.email, fullName: u.full_name },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      access_token,
+      user: { id: u.id, full_name: u.full_name, email: u.email },
+    });
+  } catch (e) {
+    console.error("[Login]", e);
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });

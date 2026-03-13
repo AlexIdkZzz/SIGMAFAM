@@ -5,6 +5,7 @@ import AppLayout from "./layout/AppLayout";
 
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import Verify from "../pages/Verify";
 import Dashboard from "../pages/Dashboard";
 import Alerts from "../pages/Alerts";
 import MapLive from "../pages/MapLive";
@@ -21,9 +22,12 @@ export default function AppRouter() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
 
+      {/* Rutas públicas */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify" element={<Verify />} />
 
+      {/* Rutas protegidas */}
       <Route
         path="/app"
         element={
