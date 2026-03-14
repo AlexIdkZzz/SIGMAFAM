@@ -115,7 +115,7 @@ async function auditLog(eventType, userId, description, metadata = null) {
         eventType,
         userId: userId ?? null,
         description,
-        metadata: r.metadata ?? null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
       }
     );
   } catch (e) {
@@ -625,7 +625,9 @@ app.get("/api/v1/audit", authRequired, async (req, res) => {
         id:          r.id,
         eventType:   r.event_type,
         description: r.description,
-        metadata:    r.metadata ? JSON.parse(r.metadata) : null,
+        metadata: r.metadata
+          ? (typeof r.metadata === "string" ? JSON.parse(r.metadata) : r.metadata)
+          : null,
         createdAt:   r.created_at,
         user:        r.user_name ?? "Sistema",
         email:       r.user_email ?? null,
