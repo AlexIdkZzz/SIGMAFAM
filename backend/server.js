@@ -115,7 +115,9 @@ async function auditLog(eventType, userId, description, metadata = null) {
         eventType,
         userId: userId ?? null,
         description,
-        metadata: metadata ? JSON.stringify(metadata) : null,
+        metadata: r.metadata
+          ? (typeof r.metadata === "string" ? JSON.parse(r.metadata) : r.metadata)
+          : null, 
       }
     );
   } catch (e) {
