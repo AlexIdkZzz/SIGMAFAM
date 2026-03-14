@@ -6,6 +6,10 @@ const { authRequired } = require("./middleware/auth");
 const { pool } = require("./db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+
+const { Resend } = require("resend");
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const app = express();
 
@@ -14,226 +18,6 @@ app.use(express.json());
 
 // ── Health ──────────────────────────────────────────────────────────────────
 app.get("/api/v1/health", (req, res) => res.json({ ok: true }));
-
-/* ═══════════════════════════ DEVICES ═══════════════════════════ */
-
-app.post("/api/v1/devices/claim", authRequired, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { device_uid, device_token } = req.body || {};
-    if (!device_uid || !device_token)
-      return res.status(400).json({ error: "MISSING_FIELDS" });
-
-    const [has] = await pool.execute(
-      `SELECT id FROM devices WHERE user_id = :userId LIMIT 1`,
-      { userId }
-    );
-    if (has.length)
-      return res.status(409).json({ error: "USER_ALREADY_HAS_DEVICE" });
-
-    const [devRows] = await pool.execute(
-      `SELECT id, user_id FROM devices WHERE device_uid = :device_uid LIMIT 1`,
-      { device_uid }
-    );
-
-    if (devRows.length) {
-      const dev = devRows[0];
-      if (dev.user_id && dev.user_id !== userId)
-        return res.status(409).json({ error: "DEVICE_ALREADY_CLAIMED" });
-
-      await pool.execute(
-        `UPDATE devices SET user_id = :userId, device_token = :device_token WHERE id = :id`,
-        { userId, device_token, id: dev.id }
-      );
-      return res.status(201).json({ ok: true });
-    }
-
-    await pool.execute(
-      `INSERT INTO devices (device_uid, device_token, user_id)
-       VALUES (:device_uid, :device_token, :userId)`,
-      { device_uid, device_token, userId }
-    );
-    return res.status(201).json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
-/* ═══════════════════════════ ALERTS ═══════════════════════════ */
-
-/**
- * GET /api/v1/alerts/active  (JWT)
- * Alertas en curso: RECEIVED | ACTIVE | ATTENDED
- */
-app.get("/api/v1/alerts/active", authRequired, async (req, res) => {
-  try {
-    const [rows] = await pool.execute(
-      `SELECT
-         a.id, a.source, a.status, a.created_at,
-         u.full_name AS user_name,
-         al.lat, al.lng, al.recorded_at
-       FROM alerts a
-       JOIN users u ON u.id = a.user_id
-       LEFT JOIN alert_locations al ON al.id = (
-         SELECT id FROM alert_locations
-         WHERE alert_id = a.id
-         ORDER BY recorded_at DESC
-         LIMIT 1
-       )
-       WHERE a.status IN ('RECEIVED','ACTIVE','ATTENDED')
-       ORDER BY a.created_at DESC`
-    );
-
-    return res.json({ alerts: _mapAlerts(rows) });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
-/**
- * GET /api/v1/alerts/history  (JWT)
- * Historial completo — todas las alertas con paginación opcional.
- *
- * Query params:
- *   page    (default 1)
- *   limit   (default 20, max 100)
- *   status  (opcional: RECEIVED | ACTIVE | ATTENDED | CLOSED)
- *   source  (opcional: IOT | WEB)
- */
-app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
-  try {
-    const page   = Math.max(1, parseInt(req.query.page  ?? 1));
-    const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit ?? 20)));
-    const offset = (page - 1) * limit;
-
-    const statusFilter = req.query.status?.toUpperCase();
-    const sourceFilter = req.query.source?.toUpperCase();
-
-    const validStatuses = ["RECEIVED", "ACTIVE", "ATTENDED", "CLOSED"];
-    const validSources  = ["IOT", "WEB"];
-
-    // Construir WHERE dinámico con ? en lugar de named placeholders
-    const conditions = ["1=1"];
-    const params     = [];
-
-    if (statusFilter && validStatuses.includes(statusFilter)) {
-      conditions.push("a.status = ?");
-      params.push(statusFilter);
-    }
-    if (sourceFilter && validSources.includes(sourceFilter)) {
-      conditions.push("a.source = ?");
-      params.push(sourceFilter);
-    }
-
-    const where = conditions.join(" AND ");
-
-    // Total para paginación
-    const [countRows] = await pool.execute(
-      `SELECT COUNT(*) AS total FROM alerts a WHERE ${where}`,
-      params
-    );
-    const total = countRows[0].total;
-
-    // Registros — LIMIT y OFFSET como ? para evitar bug de mysql2 con namedPlaceholders
-    const [rows] = await pool.execute(
-      `SELECT
-         a.id, a.source, a.status, a.created_at, a.closed_at,
-         u.full_name AS user_name,
-         al.lat, al.lng, al.recorded_at
-       FROM alerts a
-       JOIN users u ON u.id = a.user_id
-       LEFT JOIN alert_locations al ON al.id = (
-         SELECT id FROM alert_locations
-         WHERE alert_id = a.id
-         ORDER BY recorded_at DESC
-         LIMIT 1
-       )
-       WHERE ${where}
-       ORDER BY a.created_at DESC
-       LIMIT ${limit} OFFSET ${offset}`,
-            params
-    );
-
-    return res.json({
-      alerts: _mapAlerts(rows, true),
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
-/**
- * POST /api/v1/alerts  (JWT)
- * Crea alerta desde web con ubicación opcional.
- */
-app.post("/api/v1/alerts", authRequired, async (req, res) => {
-  const conn = await pool.getConnection();
-  try {
-    const userId = req.user.id;
-    const { lat, lng } = req.body || {};
-
-    await conn.beginTransaction();
-
-    const [ins] = await conn.execute(
-      `INSERT INTO alerts (user_id, source, status) VALUES (:userId, 'WEB', 'ACTIVE')`,
-      { userId }
-    );
-    const alertId = ins.insertId;
-
-    if (typeof lat === "number" && typeof lng === "number") {
-      await conn.execute(
-        `INSERT INTO alert_locations (alert_id, lat, lng) VALUES (:alertId, :lat, :lng)`,
-        { alertId, lat, lng }
-      );
-    }
-
-    await conn.commit();
-    return res.status(201).json({ alert_id: alertId });
-  } catch (e) {
-    await conn.rollback();
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  } finally {
-    conn.release();
-  }
-});
-
-/**
- * PATCH /api/v1/alerts/:id/status  (JWT)
- */
-app.patch("/api/v1/alerts/:id/status", authRequired, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const { status } = req.body || {};
-    if (!id || !status) return res.status(400).json({ error: "MISSING_FIELDS" });
-
-    const allowed = ["RECEIVED", "ACTIVE", "ATTENDED", "CLOSED"];
-    if (!allowed.includes(status))
-      return res.status(400).json({ error: "INVALID_STATUS" });
-
-    await pool.execute(
-      `UPDATE alerts
-       SET status    = :status,
-           closed_at = CASE WHEN :status = 'CLOSED' THEN CURRENT_TIMESTAMP ELSE closed_at END
-       WHERE id = :id`,
-      { status, id }
-    );
-
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
 
 /* ═══════════════════════════ HELPERS ═══════════════════════════ */
 
@@ -252,200 +36,10 @@ function _mapAlerts(rows, includeClosedAt = false) {
   }));
 }
 
-/* ═══════════════════════════ START ═══════════════════════════ */
-/* ═══════════════════════════════════════════════════════════════
-   AGREGAR ESTE BLOQUE EN server.js ANTES DE app.listen(...)
-   ═══════════════════════════════════════════════════════════════
-
-   Endpoint exclusivo para dispositivos IoT.
-   Autenticación por device_uid + device_token (sin JWT).
-   Body: { device_uid, device_token, battery?, lat?, lng? }
-*/
-
-app.post("/api/v1/iot/alert", async (req, res) => {
-  try {
-    const { device_uid, device_token, battery, lat, lng } = req.body || {};
-
-    if (!device_uid || !device_token)
-      return res.status(400).json({ error: "MISSING_FIELDS" });
-
-    // 1) Verificar que el dispositivo existe y el token es correcto
-    const [devRows] = await pool.execute(
-      `SELECT id, user_id FROM devices
-       WHERE device_uid = :device_uid AND device_token = :device_token
-       LIMIT 1`,
-      { device_uid, device_token }
-    );
-
-    if (!devRows.length)
-      return res.status(401).json({ error: "INVALID_DEVICE" });
-
-    const device = devRows[0];
-
-    if (!device.user_id)
-      return res.status(403).json({ error: "DEVICE_NOT_CLAIMED" });
-
-    // 2) Actualizar last_seen_at y batería del dispositivo
-    await pool.execute(
-      `UPDATE devices
-       SET last_seen_at = CURRENT_TIMESTAMP
-       WHERE id = :id`,
-      { id: device.id }
-    );
-
-    // 3) Crear la alerta
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-
-      const [ins] = await conn.execute(
-        `INSERT INTO alerts (user_id, device_id, source, status)
-         VALUES (:userId, :deviceId, 'IOT', 'RECEIVED')`,
-        { userId: device.user_id, deviceId: device.id }
-      );
-      const alertId = ins.insertId;
-
-      // Ubicación opcional
-      if (typeof lat === "number" && typeof lng === "number") {
-        await conn.execute(
-          `INSERT INTO alert_locations (alert_id, lat, lng)
-           VALUES (:alertId, :lat, :lng)`,
-          { alertId, lat, lng }
-        );
-      }
-
-      await conn.commit();
-
-      console.log(`[IoT] Alerta #${alertId} recibida del dispositivo ${device_uid}`);
-
-      return res.status(201).json({
-        ok: true,
-        alert_id: alertId,
-        message: "Alerta registrada correctamente",
-      });
-    } catch (e) {
-      await conn.rollback();
-      throw e;
-    } finally {
-      conn.release();
-    }
-  } catch (e) {
-    console.error("[IoT] Error:", e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
-
-/* ═══════════════════════════════════════════════════════════════
-   TAMBIÉN AGREGAR: endpoint para registrar un dispositivo nuevo
-   desde la app web (Device.jsx)
-   POST /api/v1/devices/register  — crea el device_uid y token
-   ═══════════════════════════════════════════════════════════════ */
-
-const crypto = require("crypto");
-
-app.post("/api/v1/devices/register", async (req, res) => {
-  try {
-    // Genera un UID y token únicos
-    const device_uid   = "SFAM-" + crypto.randomBytes(4).toString("hex").toUpperCase();
-    const device_token = crypto.randomBytes(16).toString("hex");
-
-    await pool.execute(
-      `INSERT INTO devices (device_uid, device_token)
-       VALUES (:device_uid, :device_token)`,
-      { device_uid, device_token }
-    );
-
-    return res.status(201).json({ device_uid, device_token });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
-/**
- * GET /api/v1/stats  (JWT)
- * Devuelve métricas generales del sistema.
- */
-app.get("/api/v1/stats", authRequired, async (req, res) => {
-  try {
-    // 1) Totales por estado
-    const [byStatus] = await pool.execute(
-      `SELECT status, COUNT(*) AS total
-       FROM alerts
-       GROUP BY status`
-    );
-
-    // 2) Alertas por día — últimos 30 días
-    const [byDay] = await pool.execute(
-      `SELECT DATE(created_at) AS day, COUNT(*) AS total
-       FROM alerts
-       WHERE created_at >= NOW() - INTERVAL 30 DAY
-       GROUP BY DATE(created_at)
-       ORDER BY day ASC`
-    );
-
-    // 3) Alertas por origen
-    const [bySource] = await pool.execute(
-      `SELECT source, COUNT(*) AS total
-       FROM alerts
-       GROUP BY source`
-    );
-
-    // 4) Top ubicaciones con más alertas (para mapa de calor) :)
-    const [hotspots] = await pool.execute(
-      `SELECT
-         ROUND(lat, 3) AS lat,
-         ROUND(lng, 3) AS lng,
-         COUNT(*) AS intensity
-       FROM alert_locations
-       GROUP BY ROUND(lat, 3), ROUND(lng, 3)
-       ORDER BY intensity DESC
-       LIMIT 50`
-    );
-
-    // 5) Tiempo promedio de atención (alertas cerradas)
-    const [avgTime] = await pool.execute(
-      `SELECT ROUND(AVG(TIMESTAMPDIFF(MINUTE, created_at, closed_at)), 1) AS avg_minutes
-       FROM alerts
-       WHERE status = 'CLOSED' AND closed_at IS NOT NULL`
-    );
-
-    // 6) Total general
-    const [total] = await pool.execute(
-      `SELECT COUNT(*) AS total FROM alerts`
-    );
-
-    return res.json({
-      total: total[0].total,
-      avgResponseMinutes: avgTime[0].avg_minutes ?? 0,
-      byStatus,
-      byDay,
-      bySource,
-      hotspots,
-    });
-  } catch (e) {
-    console.error("[Stats]", e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
-/**
- * ═══════════════════════════════════════════════════════════════
- * VERIFICACIÓN DE EMAIL CON SENDGRID
- * - Al registrarse, el usuario recibe un código de 6 dígitos por correo.
- * ═══════════════════════════════════════════════════════════════
- */
-
-const { Resend } = require("resend");
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// ── Helper: generar código de 6 dígitos ──────────────────────────
 function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// ── Helper: enviar correo de verificación ────────────────────────
 async function sendVerificationEmail(email, fullName, code) {
   await resend.emails.send({
     from: "SIGMAFAM <onboarding@resend.dev>",
@@ -512,10 +106,24 @@ async function sendVerificationEmail(email, fullName, code) {
   });
 }
 
-// ══════════════════════════════════════════════════════════════════
-// MODIFICAR el endpoint de registro existente
-// Reemplaza el app.post("/api/v1/auth/register") que ya tienes
-// ══════════════════════════════════════════════════════════════════
+async function auditLog(eventType, userId, description, metadata = null) {
+  try {
+    await pool.execute(
+      `INSERT INTO audit_logs (event_type, user_id, description, metadata)
+       VALUES (:eventType, :userId, :description, :metadata)`,
+      {
+        eventType,
+        userId: userId ?? null,
+        description,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      }
+    );
+  } catch (e) {
+    console.error("[AuditLog] Error al registrar:", e.message);
+  }
+}
+
+/* ═══════════════════════════ AUTH ═══════════════════════════ */
 
 app.post("/api/v1/auth/register", async (req, res) => {
   try {
@@ -525,7 +133,7 @@ app.post("/api/v1/auth/register", async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, 10);
     const code    = generateCode();
-    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     await pool.execute(
       `INSERT INTO users (full_name, email, password_hash, verified, verify_code, verify_expires)
@@ -533,7 +141,7 @@ app.post("/api/v1/auth/register", async (req, res) => {
       { full_name, email, password_hash, code, expires }
     );
 
-    // Enviar correo
+    await auditLog("USER_REGISTER", null, `Nuevo usuario registrado: ${email}`, { email });
     await sendVerificationEmail(email, full_name, code);
 
     return res.status(201).json({ ok: true, message: "Código enviado al correo" });
@@ -544,12 +152,6 @@ app.post("/api/v1/auth/register", async (req, res) => {
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
-
-// ══════════════════════════════════════════════════════════════════
-// NUEVO endpoint: verificar código
-// POST /api/v1/auth/verify
-// Body: { email, code }
-// ══════════════════════════════════════════════════════════════════
 
 app.post("/api/v1/auth/verify", async (req, res) => {
   try {
@@ -567,23 +169,19 @@ app.post("/api/v1/auth/verify", async (req, res) => {
     if (!u) return res.status(404).json({ error: "USER_NOT_FOUND" });
     if (u.verified) return res.status(400).json({ error: "ALREADY_VERIFIED" });
 
-    // Verificar expiración
     if (new Date() > new Date(u.verify_expires))
       return res.status(400).json({ error: "CODE_EXPIRED" });
 
-    // Verificar código
     if (u.verify_code !== code.trim())
       return res.status(400).json({ error: "INVALID_CODE" });
 
-    // Activar cuenta
     await pool.execute(
-      `UPDATE users
-       SET verified = 1, verify_code = NULL, verify_expires = NULL
-       WHERE id = :id`,
+      `UPDATE users SET verified = 1, verify_code = NULL, verify_expires = NULL WHERE id = :id`,
       { id: u.id }
     );
 
-    // Generar JWT para auto-login
+    await auditLog("USER_VERIFIED", u.id, `Cuenta verificada: ${u.email}`);
+
     const access_token = jwt.sign(
       { id: u.id, email: u.email, fullName: u.full_name },
       process.env.JWT_SECRET,
@@ -600,12 +198,6 @@ app.post("/api/v1/auth/verify", async (req, res) => {
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
-
-// ══════════════════════════════════════════════════════════════════
-// NUEVO endpoint: reenviar código
-// POST /api/v1/auth/resend
-// Body: { email }
-// ══════════════════════════════════════════════════════════════════
 
 app.post("/api/v1/auth/resend", async (req, res) => {
   try {
@@ -638,11 +230,6 @@ app.post("/api/v1/auth/resend", async (req, res) => {
   }
 });
 
-// ══════════════════════════════════════════════════════════════════
-// MODIFICAR el endpoint de login para bloquear no verificados
-// Reemplaza el app.post("/api/v1/auth/login") que ya tienes
-// ══════════════════════════════════════════════════════════════════
-
 app.post("/api/v1/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -660,7 +247,6 @@ app.post("/api/v1/auth/login", async (req, res) => {
     const ok = await bcrypt.compare(password, u.password_hash);
     if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
 
-    // Bloquear si no verificado
     if (!u.verified)
       return res.status(403).json({ error: "EMAIL_NOT_VERIFIED" });
 
@@ -669,6 +255,8 @@ app.post("/api/v1/auth/login", async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+
+    await auditLog("LOGIN", u.id, `Inicio de sesión: ${u.email}`, { ip: req.ip });
 
     return res.json({
       access_token,
@@ -679,6 +267,378 @@ app.post("/api/v1/auth/login", async (req, res) => {
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
+
+/* ═══════════════════════════ DEVICES ═══════════════════════════ */
+
+app.post("/api/v1/devices/claim", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { device_uid, device_token } = req.body || {};
+    if (!device_uid || !device_token)
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const [has] = await pool.execute(
+      `SELECT id FROM devices WHERE user_id = :userId LIMIT 1`,
+      { userId }
+    );
+    if (has.length)
+      return res.status(409).json({ error: "USER_ALREADY_HAS_DEVICE" });
+
+    const [devRows] = await pool.execute(
+      `SELECT id, user_id FROM devices WHERE device_uid = :device_uid LIMIT 1`,
+      { device_uid }
+    );
+
+    if (devRows.length) {
+      const dev = devRows[0];
+      if (dev.user_id && dev.user_id !== userId)
+        return res.status(409).json({ error: "DEVICE_ALREADY_CLAIMED" });
+
+      await pool.execute(
+        `UPDATE devices SET user_id = :userId, device_token = :device_token WHERE id = :id`,
+        { userId, device_token, id: dev.id }
+      );
+      return res.status(201).json({ ok: true });
+    }
+
+    await pool.execute(
+      `INSERT INTO devices (device_uid, device_token, user_id)
+       VALUES (:device_uid, :device_token, :userId)`,
+      { device_uid, device_token, userId }
+    );
+    return res.status(201).json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+app.post("/api/v1/devices/register", async (req, res) => {
+  try {
+    const device_uid   = "SFAM-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    const device_token = crypto.randomBytes(16).toString("hex");
+
+    await pool.execute(
+      `INSERT INTO devices (device_uid, device_token) VALUES (:device_uid, :device_token)`,
+      { device_uid, device_token }
+    );
+
+    await auditLog("DEVICE_REGISTER", null, `Nuevo dispositivo registrado: ${device_uid}`, { device_uid });
+
+    return res.status(201).json({ device_uid, device_token });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/* ═══════════════════════════ ALERTS ═══════════════════════════ */
+
+app.get("/api/v1/alerts/active", authRequired, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT
+         a.id, a.source, a.status, a.created_at,
+         u.full_name AS user_name,
+         al.lat, al.lng, al.recorded_at
+       FROM alerts a
+       JOIN users u ON u.id = a.user_id
+       LEFT JOIN alert_locations al ON al.id = (
+         SELECT id FROM alert_locations
+         WHERE alert_id = a.id
+         ORDER BY recorded_at DESC
+         LIMIT 1
+       )
+       WHERE a.status IN ('RECEIVED','ACTIVE','ATTENDED')
+       ORDER BY a.created_at DESC`
+    );
+    return res.json({ alerts: _mapAlerts(rows) });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
+  try {
+    const page   = Math.max(1, parseInt(req.query.page  ?? 1));
+    const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit ?? 20)));
+    const offset = (page - 1) * limit;
+
+    const statusFilter = req.query.status?.toUpperCase();
+    const sourceFilter = req.query.source?.toUpperCase();
+
+    const validStatuses = ["RECEIVED", "ACTIVE", "ATTENDED", "CLOSED"];
+    const validSources  = ["IOT", "WEB"];
+
+    const conditions = ["1=1"];
+    const params     = [];
+
+    if (statusFilter && validStatuses.includes(statusFilter)) {
+      conditions.push("a.status = ?");
+      params.push(statusFilter);
+    }
+    if (sourceFilter && validSources.includes(sourceFilter)) {
+      conditions.push("a.source = ?");
+      params.push(sourceFilter);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM alerts a WHERE ${where}`,
+      params
+    );
+    const total = countRows[0].total;
+
+    const [rows] = await pool.execute(
+      `SELECT
+         a.id, a.source, a.status, a.created_at, a.closed_at,
+         u.full_name AS user_name,
+         al.lat, al.lng, al.recorded_at
+       FROM alerts a
+       JOIN users u ON u.id = a.user_id
+       LEFT JOIN alert_locations al ON al.id = (
+         SELECT id FROM alert_locations
+         WHERE alert_id = a.id
+         ORDER BY recorded_at DESC
+         LIMIT 1
+       )
+       WHERE ${where}
+       ORDER BY a.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`,
+      params
+    );
+
+    return res.json({
+      alerts: _mapAlerts(rows, true),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+app.post("/api/v1/alerts", authRequired, async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const userId = req.user.id;
+    const { lat, lng } = req.body || {};
+
+    await conn.beginTransaction();
+
+    const [ins] = await conn.execute(
+      `INSERT INTO alerts (user_id, source, status) VALUES (:userId, 'WEB', 'ACTIVE')`,
+      { userId }
+    );
+    const alertId = ins.insertId;
+
+    if (typeof lat === "number" && typeof lng === "number") {
+      await conn.execute(
+        `INSERT INTO alert_locations (alert_id, lat, lng) VALUES (:alertId, :lat, :lng)`,
+        { alertId, lat, lng }
+      );
+    }
+
+    await conn.commit();
+    return res.status(201).json({ alert_id: alertId });
+  } catch (e) {
+    await conn.rollback();
+    console.error(e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  } finally {
+    conn.release();
+  }
+});
+
+app.patch("/api/v1/alerts/:id/status", authRequired, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { status } = req.body || {};
+    if (!id || !status) return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const allowed = ["RECEIVED", "ACTIVE", "ATTENDED", "CLOSED"];
+    if (!allowed.includes(status))
+      return res.status(400).json({ error: "INVALID_STATUS" });
+
+    await pool.execute(
+      `UPDATE alerts
+       SET status    = :status,
+           closed_at = CASE WHEN :status = 'CLOSED' THEN CURRENT_TIMESTAMP ELSE closed_at END
+       WHERE id = :id`,
+      { status, id }
+    );
+
+    await auditLog("ALERT_STATUS_CHANGE", req.user.id,
+      `Alerta #${id} cambió a ${status}`, { alertId: id, newStatus: status });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/* ═══════════════════════════ IOT ═══════════════════════════ */
+
+app.post("/api/v1/iot/alert", async (req, res) => {
+  try {
+    const { device_uid, device_token, lat, lng } = req.body || {};
+
+    if (!device_uid || !device_token)
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const [devRows] = await pool.execute(
+      `SELECT id, user_id FROM devices
+       WHERE device_uid = :device_uid AND device_token = :device_token LIMIT 1`,
+      { device_uid, device_token }
+    );
+
+    if (!devRows.length)
+      return res.status(401).json({ error: "INVALID_DEVICE" });
+
+    const device = devRows[0];
+
+    if (!device.user_id)
+      return res.status(403).json({ error: "DEVICE_NOT_CLAIMED" });
+
+    await pool.execute(
+      `UPDATE devices SET last_seen_at = CURRENT_TIMESTAMP WHERE id = :id`,
+      { id: device.id }
+    );
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      const [ins] = await conn.execute(
+        `INSERT INTO alerts (user_id, device_id, source, status)
+         VALUES (:userId, :deviceId, 'IOT', 'RECEIVED')`,
+        { userId: device.user_id, deviceId: device.id }
+      );
+      const alertId = ins.insertId;
+
+      if (typeof lat === "number" && typeof lng === "number") {
+        await conn.execute(
+          `INSERT INTO alert_locations (alert_id, lat, lng) VALUES (:alertId, :lat, :lng)`,
+          { alertId, lat, lng }
+        );
+      }
+
+      await conn.commit();
+
+      await auditLog("IOT_ALERT", device.user_id,
+        `Alerta IoT recibida del dispositivo ${device_uid}`, { device_uid, alertId });
+
+      console.log(`[IoT] Alerta #${alertId} recibida del dispositivo ${device_uid}`);
+
+      return res.status(201).json({ ok: true, alert_id: alertId, message: "Alerta registrada correctamente" });
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+  } catch (e) {
+    console.error("[IoT] Error:", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/* ═══════════════════════════ STATS ═══════════════════════════ */
+
+app.get("/api/v1/stats", authRequired, async (req, res) => {
+  try {
+    const [byStatus] = await pool.execute(`SELECT status, COUNT(*) AS total FROM alerts GROUP BY status`);
+    const [byDay]    = await pool.execute(
+      `SELECT DATE(created_at) AS day, COUNT(*) AS total
+       FROM alerts
+       WHERE created_at >= NOW() - INTERVAL 30 DAY
+       GROUP BY DATE(created_at)
+       ORDER BY day ASC`
+    );
+    const [bySource] = await pool.execute(`SELECT source, COUNT(*) AS total FROM alerts GROUP BY source`);
+    const [hotspots] = await pool.execute(
+      `SELECT ROUND(lat, 3) AS lat, ROUND(lng, 3) AS lng, COUNT(*) AS intensity
+       FROM alert_locations
+       GROUP BY ROUND(lat, 3), ROUND(lng, 3)
+       ORDER BY intensity DESC
+       LIMIT 50`
+    );
+    const [avgTime] = await pool.execute(
+      `SELECT ROUND(AVG(TIMESTAMPDIFF(MINUTE, created_at, closed_at)), 1) AS avg_minutes
+       FROM alerts WHERE status = 'CLOSED' AND closed_at IS NOT NULL`
+    );
+    const [total] = await pool.execute(`SELECT COUNT(*) AS total FROM alerts`);
+
+    return res.json({
+      total: total[0].total,
+      avgResponseMinutes: avgTime[0].avg_minutes ?? 0,
+      byStatus, byDay, bySource, hotspots,
+    });
+  } catch (e) {
+    console.error("[Stats]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/* ═══════════════════════════ AUDIT ═══════════════════════════ */
+
+app.get("/api/v1/audit", authRequired, async (req, res) => {
+  try {
+    const page      = Math.max(1, parseInt(req.query.page  ?? 1));
+    const limit     = Math.min(100, Math.max(1, parseInt(req.query.limit ?? 30)));
+    const offset    = (page - 1) * limit;
+    const eventType = req.query.event_type?.toUpperCase();
+
+    const conditions = ["1=1"];
+    const params     = [];
+
+    if (eventType) {
+      conditions.push("al.event_type = ?");
+      params.push(eventType);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM audit_logs al WHERE ${where}`,
+      params
+    );
+    const total = countRows[0].total;
+
+    const [rows] = await pool.execute(
+      `SELECT
+         al.id, al.event_type, al.description, al.metadata, al.created_at,
+         u.full_name AS user_name, u.email AS user_email
+       FROM audit_logs al
+       LEFT JOIN users u ON u.id = al.user_id
+       WHERE ${where}
+       ORDER BY al.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`,
+      params
+    );
+
+    return res.json({
+      logs: rows.map((r) => ({
+        id:          r.id,
+        eventType:   r.event_type,
+        description: r.description,
+        metadata:    r.metadata ? JSON.parse(r.metadata) : null,
+        createdAt:   r.created_at,
+        user:        r.user_name ?? "Sistema",
+        email:       r.user_email ?? null,
+      })),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    });
+  } catch (e) {
+    console.error("[Audit]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/* ═══════════════════════════ START ═══════════════════════════ */
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
