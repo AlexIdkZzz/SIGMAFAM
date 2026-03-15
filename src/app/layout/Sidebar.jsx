@@ -43,7 +43,10 @@ export default function Sidebar() {
       </div>
 
       <div className="mt-6 px-3 py-2 text-xs text-slate-400">
-        hola
+        Trabajo académico CETI Tonalá 2025
+        Yael De Alba 21300160
+        Axel Moreno 22300235
+        Uziel Noriega 22300232
       </div>
     </aside>
   );
