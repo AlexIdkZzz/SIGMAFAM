@@ -160,8 +160,8 @@ app.post("/api/v1/auth/verify", async (req, res) => {
       return res.status(400).json({ error: "MISSING_FIELDS" });
 
     const [rows] = await pool.execute(
-      `SELECT id, full_name, email, verify_code, verify_expires, verified
-       FROM users WHERE email = :email LIMIT 1`,
+      `SELECT id, full_name, email, role, verify_code, verify_expires, verified
+      FROM users WHERE email = :email LIMIT 1`,
       { email }
     );
 
@@ -183,7 +183,7 @@ app.post("/api/v1/auth/verify", async (req, res) => {
     await auditLog("USER_VERIFIED", u.id, `Cuenta verificada: ${u.email}`);
 
     const access_token = jwt.sign(
-      { id: u.id, email: u.email, fullName: u.full_name },
+      { id: u.id, email: u.email, fullName: u.full_name, role: u.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -191,7 +191,7 @@ app.post("/api/v1/auth/verify", async (req, res) => {
     return res.json({
       ok: true,
       access_token,
-      user: { id: u.id, full_name: u.full_name, email: u.email },
+      user: { id: u.id, full_name: u.full_name, email: u.email, role: u.role },
     });
   } catch (e) {
     console.error("[Verify]", e);
@@ -237,7 +237,7 @@ app.post("/api/v1/auth/login", async (req, res) => {
       return res.status(400).json({ error: "MISSING_FIELDS" });
 
     const [rows] = await pool.execute(
-      `SELECT id, full_name, email, password_hash, verified FROM users WHERE email = :email`,
+      `SELECT id, full_name, email, password_hash, role, verified FROM users WHERE email = :email`,
       { email }
     );
 
@@ -251,7 +251,7 @@ app.post("/api/v1/auth/login", async (req, res) => {
       return res.status(403).json({ error: "EMAIL_NOT_VERIFIED" });
 
     const access_token = jwt.sign(
-      { id: u.id, email: u.email, fullName: u.full_name },
+      { id: u.id, email: u.email, fullName: u.full_name, role: u.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -260,7 +260,7 @@ app.post("/api/v1/auth/login", async (req, res) => {
 
     return res.json({
       access_token,
-      user: { id: u.id, full_name: u.full_name, email: u.email },
+      user: { id: u.id, full_name: u.full_name, email: u.email, role: u.role },
     });
   } catch (e) {
     console.error("[Login]", e);
@@ -636,6 +636,229 @@ app.get("/api/v1/audit", authRequired, async (req, res) => {
     });
   } catch (e) {
     console.error("[Audit]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   ENDPOINTS DE GRUPOS FAMILIARES
+   Agregar en server.js antes de app.listen()
+   ═══════════════════════════════════════════════════════════════ */
+
+// ── Helper: generar código de invitación ────────────────────────
+function generateInviteCode() {
+  return crypto.randomBytes(4).toString("hex").toUpperCase(); // ej: A3F9B2C1
+}
+
+/**
+ * POST /api/v1/family/create  (JWT)
+ * Crea un grupo familiar. Solo si el usuario no pertenece a uno.
+ * Body: { name }
+ */
+app.post("/api/v1/family/create", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name } = req.body || {};
+    if (!name?.trim()) return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    // Verificar que no tenga ya un grupo
+    const [existing] = await pool.execute(
+      `SELECT id FROM users WHERE id = :userId AND family_group_id IS NOT NULL LIMIT 1`,
+      { userId }
+    );
+    if (existing.length)
+      return res.status(409).json({ error: "ALREADY_IN_GROUP" });
+
+    const invite_code = generateInviteCode();
+
+    const [ins] = await pool.execute(
+      `INSERT INTO family_groups (name, owner_id, invite_code)
+       VALUES (:name, :userId, :invite_code)`,
+      { name: name.trim(), userId, invite_code }
+    );
+    const groupId = ins.insertId;
+
+    // Asignar al creador como JEFE_FAMILIA
+    await pool.execute(
+      `UPDATE users SET role = 'JEFE_FAMILIA', family_group_id = :groupId WHERE id = :userId`,
+      { groupId, userId }
+    );
+
+    await auditLog("FAMILY_CREATE", userId, `Grupo familiar creado: ${name}`, { groupId, invite_code });
+
+    return res.status(201).json({ ok: true, group_id: groupId, invite_code });
+  } catch (e) {
+    console.error("[Family/Create]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * POST /api/v1/family/join  (JWT)
+ * Unirse a un grupo con código de invitación.
+ * Body: { invite_code }
+ */
+app.post("/api/v1/family/join", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { invite_code } = req.body || {};
+    if (!invite_code?.trim()) return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    // Verificar que no tenga ya un grupo
+    const [userRows] = await pool.execute(
+      `SELECT family_group_id FROM users WHERE id = :userId LIMIT 1`,
+      { userId }
+    );
+    if (userRows[0]?.family_group_id)
+      return res.status(409).json({ error: "ALREADY_IN_GROUP" });
+
+    // Buscar el grupo por código
+    const [groupRows] = await pool.execute(
+      `SELECT id, name FROM family_groups WHERE invite_code = :invite_code LIMIT 1`,
+      { invite_code: invite_code.trim().toUpperCase() }
+    );
+    if (!groupRows.length)
+      return res.status(404).json({ error: "INVALID_CODE" });
+
+    const group = groupRows[0];
+
+    // Verificar límite de 6 miembros
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM users WHERE family_group_id = :groupId`,
+      { groupId: group.id }
+    );
+    if (Number(countRows[0].total) >= 6)
+      return res.status(409).json({ error: "GROUP_FULL" });
+
+    // Unir al usuario como MIEMBRO
+    await pool.execute(
+      `UPDATE users SET role = 'MIEMBRO', family_group_id = :groupId WHERE id = :userId`,
+      { groupId: group.id, userId }
+    );
+
+    await auditLog("FAMILY_JOIN", userId, `Se unió al grupo: ${group.name}`, { groupId: group.id });
+
+    return res.json({ ok: true, group_name: group.name });
+  } catch (e) {
+    console.error("[Family/Join]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * GET /api/v1/family  (JWT)
+ * Info del grupo familiar del usuario autenticado.
+ */
+app.get("/api/v1/family", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [userRows] = await pool.execute(
+      `SELECT family_group_id, role FROM users WHERE id = :userId LIMIT 1`,
+      { userId }
+    );
+    const u = userRows[0];
+    if (!u?.family_group_id)
+      return res.json({ group: null });
+
+    const [groupRows] = await pool.execute(
+      `SELECT id, name, invite_code, created_at FROM family_groups WHERE id = :id LIMIT 1`,
+      { id: u.family_group_id }
+    );
+    const group = groupRows[0];
+
+    const [members] = await pool.execute(
+      `SELECT id, full_name, email, role, created_at
+       FROM users WHERE family_group_id = :groupId ORDER BY created_at ASC`,
+      { groupId: group.id }
+    );
+
+    return res.json({
+      group: {
+        id:          group.id,
+        name:        group.name,
+        invite_code: u.role === "JEFE_FAMILIA" ? group.invite_code : null,
+        created_at:  group.created_at,
+        members:     members.map((m) => ({
+          id:        m.id,
+          fullName:  m.full_name,
+          email:     m.email,
+          role:      m.role,
+          joinedAt:  m.created_at,
+        })),
+      },
+    });
+  } catch (e) {
+    console.error("[Family/Get]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * DELETE /api/v1/family/members/:id  (JWT — solo JEFE_FAMILIA)
+ * Expulsar a un miembro del grupo.
+ */
+app.delete("/api/v1/family/members/:id", authRequired, async (req, res) => {
+  try {
+    const userId   = req.user.id;
+    const memberId = Number(req.params.id);
+
+    // Verificar que el que ejecuta es JEFE_FAMILIA
+    const [jefeRows] = await pool.execute(
+      `SELECT role, family_group_id FROM users WHERE id = :userId LIMIT 1`,
+      { userId }
+    );
+    const jefe = jefeRows[0];
+    if (jefe?.role !== "JEFE_FAMILIA")
+      return res.status(403).json({ error: "FORBIDDEN" });
+
+    // Verificar que el miembro pertenece al mismo grupo
+    const [memberRows] = await pool.execute(
+      `SELECT id FROM users WHERE id = :memberId AND family_group_id = :groupId LIMIT 1`,
+      { memberId, groupId: jefe.family_group_id }
+    );
+    if (!memberRows.length)
+      return res.status(404).json({ error: "MEMBER_NOT_FOUND" });
+
+    await pool.execute(
+      `UPDATE users SET role = 'JEFE_FAMILIA', family_group_id = NULL WHERE id = :memberId`,
+      { memberId }
+    );
+
+    await auditLog("FAMILY_REMOVE", userId, `Miembro #${memberId} removido del grupo`);
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Family/Remove]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * POST /api/v1/family/regenerate-code  (JWT — solo JEFE_FAMILIA)
+ * Regenera el código de invitación.
+ */
+app.post("/api/v1/family/regenerate-code", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [rows] = await pool.execute(
+      `SELECT role, family_group_id FROM users WHERE id = :userId LIMIT 1`,
+      { userId }
+    );
+    const u = rows[0];
+    if (u?.role !== "JEFE_FAMILIA")
+      return res.status(403).json({ error: "FORBIDDEN" });
+
+    const invite_code = generateInviteCode();
+    await pool.execute(
+      `UPDATE family_groups SET invite_code = :invite_code WHERE id = :groupId`,
+      { invite_code, groupId: u.family_group_id }
+    );
+
+    return res.json({ ok: true, invite_code });
+  } catch (e) {
+    console.error("[Family/Regenerate]", e);
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
