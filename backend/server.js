@@ -40,6 +40,31 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function generateInviteCode() {
+  return crypto.randomBytes(4).toString("hex").toUpperCase();
+}
+
+/**
+ * Devuelve los IDs de usuarios relevantes para el scope del usuario autenticado.
+ * - Si tiene grupo familiar → todos los miembros del grupo
+ * - Si no tiene grupo → solo él mismo
+ */
+async function _getScopeUserIds(userId) {
+  const [rows] = await pool.execute(
+    `SELECT family_group_id FROM users WHERE id = :userId LIMIT 1`,
+    { userId }
+  );
+  const groupId = rows[0]?.family_group_id;
+
+  if (!groupId) return [userId];
+
+  const [members] = await pool.execute(
+    `SELECT id FROM users WHERE family_group_id = :groupId`,
+    { groupId }
+  );
+  return members.map((m) => m.id);
+}
+
 async function sendVerificationEmail(email, fullName, code) {
   await resend.emails.send({
     from: "SIGMAFAM <onboarding@resend.dev>",
@@ -161,7 +186,7 @@ app.post("/api/v1/auth/verify", async (req, res) => {
 
     const [rows] = await pool.execute(
       `SELECT id, full_name, email, role, verify_code, verify_expires, verified
-      FROM users WHERE email = :email LIMIT 1`,
+       FROM users WHERE email = :email LIMIT 1`,
       { email }
     );
 
@@ -336,6 +361,9 @@ app.post("/api/v1/devices/register", async (req, res) => {
 
 app.get("/api/v1/alerts/active", authRequired, async (req, res) => {
   try {
+    const userIds = await _getScopeUserIds(req.user.id);
+    const placeholders = userIds.map(() => "?").join(",");
+
     const [rows] = await pool.execute(
       `SELECT
          a.id, a.source, a.status, a.created_at,
@@ -350,7 +378,9 @@ app.get("/api/v1/alerts/active", authRequired, async (req, res) => {
          LIMIT 1
        )
        WHERE a.status IN ('RECEIVED','ACTIVE','ATTENDED')
-       ORDER BY a.created_at DESC`
+         AND a.user_id IN (${placeholders})
+       ORDER BY a.created_at DESC`,
+      userIds
     );
     return res.json({ alerts: _mapAlerts(rows) });
   } catch (e) {
@@ -361,6 +391,9 @@ app.get("/api/v1/alerts/active", authRequired, async (req, res) => {
 
 app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
   try {
+    const userIds = await _getScopeUserIds(req.user.id);
+    const placeholders = userIds.map(() => "?").join(",");
+
     const page   = Math.max(1, parseInt(req.query.page  ?? 1));
     const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit ?? 20)));
     const offset = (page - 1) * limit;
@@ -371,8 +404,8 @@ app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
     const validStatuses = ["RECEIVED", "ACTIVE", "ATTENDED", "CLOSED"];
     const validSources  = ["IOT", "WEB"];
 
-    const conditions = ["1=1"];
-    const params     = [];
+    const conditions = [`a.user_id IN (${placeholders})`];
+    const params     = [...userIds];
 
     if (statusFilter && validStatuses.includes(statusFilter)) {
       conditions.push("a.status = ?");
@@ -531,8 +564,6 @@ app.post("/api/v1/iot/alert", async (req, res) => {
       await auditLog("IOT_ALERT", device.user_id,
         `Alerta IoT recibida del dispositivo ${device_uid}`, { device_uid, alertId });
 
-      console.log(`[IoT] Alerta #${alertId} recibida del dispositivo ${device_uid}`);
-
       return res.status(201).json({ ok: true, alert_id: alertId, message: "Alerta registrada correctamente" });
     } catch (e) {
       await conn.rollback();
@@ -550,27 +581,45 @@ app.post("/api/v1/iot/alert", async (req, res) => {
 
 app.get("/api/v1/stats", authRequired, async (req, res) => {
   try {
-    const [byStatus] = await pool.execute(`SELECT status, COUNT(*) AS total FROM alerts GROUP BY status`);
-    const [byDay]    = await pool.execute(
+    const userIds = await _getScopeUserIds(req.user.id);
+    const ph = userIds.map(() => "?").join(",");
+
+    const [byStatus] = await pool.execute(
+      `SELECT status, COUNT(*) AS total FROM alerts WHERE user_id IN (${ph}) GROUP BY status`,
+      userIds
+    );
+    const [byDay] = await pool.execute(
       `SELECT DATE(created_at) AS day, COUNT(*) AS total
        FROM alerts
-       WHERE created_at >= NOW() - INTERVAL 30 DAY
+       WHERE user_id IN (${ph}) AND created_at >= NOW() - INTERVAL 30 DAY
        GROUP BY DATE(created_at)
-       ORDER BY day ASC`
+       ORDER BY day ASC`,
+      userIds
     );
-    const [bySource] = await pool.execute(`SELECT source, COUNT(*) AS total FROM alerts GROUP BY source`);
+    const [bySource] = await pool.execute(
+      `SELECT source, COUNT(*) AS total FROM alerts WHERE user_id IN (${ph}) GROUP BY source`,
+      userIds
+    );
     const [hotspots] = await pool.execute(
-      `SELECT ROUND(lat, 3) AS lat, ROUND(lng, 3) AS lng, COUNT(*) AS intensity
-       FROM alert_locations
-       GROUP BY ROUND(lat, 3), ROUND(lng, 3)
+      `SELECT ROUND(al.lat, 3) AS lat, ROUND(al.lng, 3) AS lng, COUNT(*) AS intensity
+       FROM alert_locations al
+       JOIN alerts a ON a.id = al.alert_id
+       WHERE a.user_id IN (${ph})
+       GROUP BY ROUND(al.lat, 3), ROUND(al.lng, 3)
        ORDER BY intensity DESC
-       LIMIT 50`
+       LIMIT 50`,
+      userIds
     );
     const [avgTime] = await pool.execute(
       `SELECT ROUND(AVG(TIMESTAMPDIFF(MINUTE, created_at, closed_at)), 1) AS avg_minutes
-       FROM alerts WHERE status = 'CLOSED' AND closed_at IS NOT NULL`
+       FROM alerts
+       WHERE user_id IN (${ph}) AND status = 'CLOSED' AND closed_at IS NOT NULL`,
+      userIds
     );
-    const [total] = await pool.execute(`SELECT COUNT(*) AS total FROM alerts`);
+    const [total] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM alerts WHERE user_id IN (${ph})`,
+      userIds
+    );
 
     return res.json({
       total: total[0].total,
@@ -587,13 +636,19 @@ app.get("/api/v1/stats", authRequired, async (req, res) => {
 
 app.get("/api/v1/audit", authRequired, async (req, res) => {
   try {
+    const userIds = await _getScopeUserIds(req.user.id);
+    const ph = userIds.map(() => "?").join(",");
+
     const page      = Math.max(1, parseInt(req.query.page  ?? 1));
     const limit     = Math.min(100, Math.max(1, parseInt(req.query.limit ?? 30)));
     const offset    = (page - 1) * limit;
     const eventType = req.query.event_type?.toUpperCase();
 
-    const conditions = ["1=1"];
-    const params     = [];
+    // ADMIN ve todo, los demás ven solo su scope
+    const isAdmin = req.user.role === "ADMIN";
+
+    const conditions = isAdmin ? ["1=1"] : [`(al.user_id IN (${ph}) OR al.user_id IS NULL)`];
+    const params     = isAdmin ? [] : [...userIds];
 
     if (eventType) {
       conditions.push("al.event_type = ?");
@@ -625,9 +680,7 @@ app.get("/api/v1/audit", authRequired, async (req, res) => {
         id:          r.id,
         eventType:   r.event_type,
         description: r.description,
-        metadata: r.metadata
-          ? (typeof r.metadata === "string" ? JSON.parse(r.metadata) : r.metadata)
-          : null,
+        metadata:    r.metadata ?? null,
         createdAt:   r.created_at,
         user:        r.user_name ?? "Sistema",
         email:       r.user_email ?? null,
@@ -640,28 +693,14 @@ app.get("/api/v1/audit", authRequired, async (req, res) => {
   }
 });
 
-/* ═══════════════════════════════════════════════════════════════
-   ENDPOINTS DE GRUPOS FAMILIARES
-   Agregar en server.js antes de app.listen()
-   ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════ FAMILY ═══════════════════════════ */
 
-// ── Helper: generar código de invitación ────────────────────────
-function generateInviteCode() {
-  return crypto.randomBytes(4).toString("hex").toUpperCase(); // ej: A3F9B2C1
-}
-
-/**
- * POST /api/v1/family/create  (JWT)
- * Crea un grupo familiar. Solo si el usuario no pertenece a uno.
- * Body: { name }
- */
 app.post("/api/v1/family/create", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
     const { name } = req.body || {};
     if (!name?.trim()) return res.status(400).json({ error: "MISSING_FIELDS" });
 
-    // Verificar que no tenga ya un grupo
     const [existing] = await pool.execute(
       `SELECT id FROM users WHERE id = :userId AND family_group_id IS NOT NULL LIMIT 1`,
       { userId }
@@ -678,7 +717,6 @@ app.post("/api/v1/family/create", authRequired, async (req, res) => {
     );
     const groupId = ins.insertId;
 
-    // Asignar al creador como JEFE_FAMILIA
     await pool.execute(
       `UPDATE users SET role = 'JEFE_FAMILIA', family_group_id = :groupId WHERE id = :userId`,
       { groupId, userId }
@@ -693,18 +731,12 @@ app.post("/api/v1/family/create", authRequired, async (req, res) => {
   }
 });
 
-/**
- * POST /api/v1/family/join  (JWT)
- * Unirse a un grupo con código de invitación.
- * Body: { invite_code }
- */
 app.post("/api/v1/family/join", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
     const { invite_code } = req.body || {};
     if (!invite_code?.trim()) return res.status(400).json({ error: "MISSING_FIELDS" });
 
-    // Verificar que no tenga ya un grupo
     const [userRows] = await pool.execute(
       `SELECT family_group_id FROM users WHERE id = :userId LIMIT 1`,
       { userId }
@@ -712,7 +744,6 @@ app.post("/api/v1/family/join", authRequired, async (req, res) => {
     if (userRows[0]?.family_group_id)
       return res.status(409).json({ error: "ALREADY_IN_GROUP" });
 
-    // Buscar el grupo por código
     const [groupRows] = await pool.execute(
       `SELECT id, name FROM family_groups WHERE invite_code = :invite_code LIMIT 1`,
       { invite_code: invite_code.trim().toUpperCase() }
@@ -722,7 +753,6 @@ app.post("/api/v1/family/join", authRequired, async (req, res) => {
 
     const group = groupRows[0];
 
-    // Verificar límite de 6 miembros
     const [countRows] = await pool.execute(
       `SELECT COUNT(*) AS total FROM users WHERE family_group_id = :groupId`,
       { groupId: group.id }
@@ -730,7 +760,6 @@ app.post("/api/v1/family/join", authRequired, async (req, res) => {
     if (Number(countRows[0].total) >= 6)
       return res.status(409).json({ error: "GROUP_FULL" });
 
-    // Unir al usuario como MIEMBRO
     await pool.execute(
       `UPDATE users SET role = 'MIEMBRO', family_group_id = :groupId WHERE id = :userId`,
       { groupId: group.id, userId }
@@ -745,10 +774,6 @@ app.post("/api/v1/family/join", authRequired, async (req, res) => {
   }
 });
 
-/**
- * GET /api/v1/family  (JWT)
- * Info del grupo familiar del usuario autenticado.
- */
 app.get("/api/v1/family", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -794,16 +819,11 @@ app.get("/api/v1/family", authRequired, async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/v1/family/members/:id  (JWT — solo JEFE_FAMILIA)
- * Expulsar a un miembro del grupo.
- */
 app.delete("/api/v1/family/members/:id", authRequired, async (req, res) => {
   try {
     const userId   = req.user.id;
     const memberId = Number(req.params.id);
 
-    // Verificar que el que ejecuta es JEFE_FAMILIA
     const [jefeRows] = await pool.execute(
       `SELECT role, family_group_id FROM users WHERE id = :userId LIMIT 1`,
       { userId }
@@ -812,7 +832,6 @@ app.delete("/api/v1/family/members/:id", authRequired, async (req, res) => {
     if (jefe?.role !== "JEFE_FAMILIA")
       return res.status(403).json({ error: "FORBIDDEN" });
 
-    // Verificar que el miembro pertenece al mismo grupo
     const [memberRows] = await pool.execute(
       `SELECT id FROM users WHERE id = :memberId AND family_group_id = :groupId LIMIT 1`,
       { memberId, groupId: jefe.family_group_id }
@@ -834,10 +853,6 @@ app.delete("/api/v1/family/members/:id", authRequired, async (req, res) => {
   }
 });
 
-/**
- * POST /api/v1/family/regenerate-code  (JWT — solo JEFE_FAMILIA)
- * Regenera el código de invitación.
- */
 app.post("/api/v1/family/regenerate-code", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
