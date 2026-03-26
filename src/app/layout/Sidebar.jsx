@@ -8,7 +8,7 @@ const nav = [
   { to: "/app/map",       label: "Mapa en vivo",   roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/history",   label: "Historial",      roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/stats",     label: "Estadísticas",   roles: ["ADMIN","JEFE_FAMILIA"] },
-  { to: "/app/family",    label: "Familia",        roles: ["ADMIN","JEFE_FAMILIA"] },
+  { to: "/app/family",    label: "Familia",        roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/contacts",  label: "Contactos",      roles: ["ADMIN","JEFE_FAMILIA"] },
   { to: "/app/device",    label: "Dispositivo",    roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/audit",     label: "Auditoría",      roles: ["ADMIN"] },

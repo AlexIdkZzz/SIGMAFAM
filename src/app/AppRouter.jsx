@@ -53,7 +53,7 @@ export default function AppRouter() {
         <Route
           path="family"
           element={
-            <RequireAuth allowRoles={["ADMIN", "JEFE_FAMILIA"]}>
+            <RequireAuth allowRoles={["ADMIN", "JEFE_FAMILIA", "MIEMBRO"]}>
               <Family />
             </RequireAuth>
           }
