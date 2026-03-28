@@ -251,7 +251,7 @@ export default function Contacts() {
       </Card>
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
-        <strong>Nota:</strong> Para WhatsApp, el contacto debe haber aceptado el sandbox de Twilio enviando el mensaje de activación al número de WhatsApp de SIGMAFAM. Para SMS no se requiere nada adicional.
+        <strong>Nota:</strong> El servicio de notificaciones por WhatsApp no funciona momentáneamente, estamos trabajando para resolverlo lo antes posible. Mientras tanto, puedes usar SMS como canal de notificación.
       </div>
     </PageShell>
   );
