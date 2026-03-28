@@ -11,6 +11,12 @@ const crypto = require("crypto");
 const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const twilio = require("twilio");
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
 const app = express();
 
 app.use(cors({ origin: true, credentials: true }));
@@ -42,6 +48,46 @@ function generateCode() {
 
 function generateInviteCode() {
   return crypto.randomBytes(4).toString("hex").toUpperCase();
+}
+
+/**
+ * Envía mensajes de emergencia a los contactos del usuario via SMS o WhatsApp.
+ * No lanza error si falla — la alerta ya se creó, el mensaje es best-effort.
+ */
+async function sendEmergencyMessages(userId, userName, lat, lng) {
+  try {
+    const [contacts] = await pool.execute(
+      `SELECT name, phone, channel FROM emergency_contacts WHERE user_id = :userId`,
+      { userId }
+    );
+
+    if (!contacts.length) return;
+
+    const locationText = (lat && lng)
+      ? `📍 Ubicación: https://maps.google.com/?q=${lat},${lng}`
+      : "📍 Ubicación no disponible";
+
+    const message = `🚨 ALERTA SIGMAFAM\n${userName} ha activado una alerta de emergencia.\n${locationText}`;
+
+    for (const contact of contacts) {
+      try {
+        const phone = contact.phone.startsWith("+") ? contact.phone : `+${contact.phone}`;
+        const isWA  = contact.channel === "WHATSAPP";
+
+        await twilioClient.messages.create({
+          from: isWA ? process.env.TWILIO_WA_FROM : process.env.TWILIO_PHONE,
+          to:   isWA ? `whatsapp:${phone}` : phone,
+          body: message,
+        });
+
+        console.log(`[Twilio] Mensaje enviado a ${contact.name} (${contact.channel})`);
+      } catch (err) {
+        console.error(`[Twilio] Error al enviar a ${contact.name}:`, err.message);
+      }
+    }
+  } catch (e) {
+    console.error("[Twilio] Error general:", e.message);
+  }
 }
 
 /**
@@ -475,6 +521,13 @@ app.post("/api/v1/alerts", authRequired, async (req, res) => {
     }
 
     await conn.commit();
+
+    // Enviar mensajes de emergencia en background
+    const [userRows] = await pool.execute(
+      `SELECT full_name FROM users WHERE id = :userId LIMIT 1`, { userId }
+    );
+    sendEmergencyMessages(userId, userRows[0]?.full_name ?? "Un usuario", lat, lng);
+
     return res.status(201).json({ alert_id: alertId });
   } catch (e) {
     await conn.rollback();
@@ -563,6 +616,12 @@ app.post("/api/v1/iot/alert", async (req, res) => {
 
       await auditLog("IOT_ALERT", device.user_id,
         `Alerta IoT recibida del dispositivo ${device_uid}`, { device_uid, alertId });
+
+      // Enviar mensajes de emergencia en background
+      const [userRows] = await pool.execute(
+        `SELECT full_name FROM users WHERE id = :userId LIMIT 1`, { userId: device.user_id }
+      );
+      sendEmergencyMessages(device.user_id, userRows[0]?.full_name ?? "Un usuario", lat, lng);
 
       return res.status(201).json({ ok: true, alert_id: alertId, message: "Alerta registrada correctamente" });
     } catch (e) {
@@ -874,6 +933,114 @@ app.post("/api/v1/family/regenerate-code", authRequired, async (req, res) => {
     return res.json({ ok: true, invite_code });
   } catch (e) {
     console.error("[Family/Regenerate]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/* ═══════════════════════════ CONTACTOS DE EMERGENCIA ═══════════════════════════ */
+
+/**
+ * GET /api/v1/contacts  (JWT)
+ * Devuelve los contactos de emergencia del usuario.
+ */
+app.get("/api/v1/contacts", authRequired, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT id, name, phone, channel, created_at
+       FROM emergency_contacts WHERE user_id = :userId ORDER BY created_at ASC`,
+      { userId: req.user.id }
+    );
+    return res.json({ contacts: rows });
+  } catch (e) {
+    console.error("[Contacts/Get]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * POST /api/v1/contacts  (JWT)
+ * Agrega un contacto de emergencia. Máximo 5 por usuario.
+ * Body: { name, phone, channel }
+ */
+app.post("/api/v1/contacts", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, phone, channel } = req.body || {};
+
+    if (!name?.trim() || !phone?.trim())
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const validChannels = ["SMS", "WHATSAPP"];
+    const ch = validChannels.includes(channel?.toUpperCase()) ? channel.toUpperCase() : "WHATSAPP";
+
+    // Límite de 5 contactos por usuario
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM emergency_contacts WHERE user_id = :userId`,
+      { userId }
+    );
+    if (Number(countRows[0].total) >= 5)
+      return res.status(409).json({ error: "MAX_CONTACTS_REACHED" });
+
+    const [ins] = await pool.execute(
+      `INSERT INTO emergency_contacts (user_id, name, phone, channel)
+       VALUES (:userId, :name, :phone, :channel)`,
+      { userId, name: name.trim(), phone: phone.trim(), channel: ch }
+    );
+
+    return res.status(201).json({ ok: true, id: ins.insertId });
+  } catch (e) {
+    console.error("[Contacts/Create]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * DELETE /api/v1/contacts/:id  (JWT)
+ * Elimina un contacto de emergencia.
+ */
+app.delete("/api/v1/contacts/:id", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const id     = Number(req.params.id);
+
+    await pool.execute(
+      `DELETE FROM emergency_contacts WHERE id = :id AND user_id = :userId`,
+      { id, userId }
+    );
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Contacts/Delete]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * PATCH /api/v1/contacts/:id  (JWT)
+ * Edita un contacto de emergencia.
+ * Body: { name, phone, channel }
+ */
+app.patch("/api/v1/contacts/:id", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const id     = Number(req.params.id);
+    const { name, phone, channel } = req.body || {};
+
+    if (!name?.trim() || !phone?.trim())
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const validChannels = ["SMS", "WHATSAPP"];
+    const ch = validChannels.includes(channel?.toUpperCase()) ? channel.toUpperCase() : "WHATSAPP";
+
+    await pool.execute(
+      `UPDATE emergency_contacts SET name = :name, phone = :phone, channel = :channel
+       WHERE id = :id AND user_id = :userId`,
+      { name: name.trim(), phone: phone.trim(), channel: ch, id, userId }
+    );
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Contacts/Update]", e);
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
