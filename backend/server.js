@@ -113,7 +113,7 @@ async function _getScopeUserIds(userId) {
 
 async function sendVerificationEmail(email, fullName, code) {
   await resend.emails.send({
-    from: "SIGMAFAM <onboarding@resend.dev>",
+    from: "SIGMAFAM <noreply@castoresceti.com>",
     to: email,
     subject: "Verifica tu cuenta — SIGMAFAM",
     html: `
