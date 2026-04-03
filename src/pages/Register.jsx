@@ -21,6 +21,10 @@ export default function Register() {
       setError("Todos los campos son obligatorios.");
       return;
     }
+    if (!/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ\s]+$/.test(fullName.trim())) {
+      setError("El nombre solo puede contener letras.");
+      return;
+    }
     if (password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
       return;
