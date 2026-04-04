@@ -341,67 +341,103 @@ app.post("/api/v1/auth/login", async (req, res) => {
 
 /* ═══════════════════════════ DEVICES ═══════════════════════════ */
 
-app.post("/api/v1/devices/claim", authRequired, async (req, res) => {
+/* ═══════════════════════════════════════════════════════════════
+   ENDPOINTS DE DISPOSITIVOS IoT: generación, vinculación, desvinculación y recepción de alertas.
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * GET /api/v1/devices/mine  (JWT)
+ * Devuelve el dispositivo vinculado al usuario autenticado.
+ */
+app.get("/api/v1/devices/mine", authRequired, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT id, device_uid, last_seen_at, created_at
+       FROM devices WHERE user_id = :userId LIMIT 1`,
+      { userId: req.user.id }
+    );
+    return res.json({ device: rows[0] ?? null });
+  } catch (e) {
+    console.error("[Device/Mine]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * POST /api/v1/devices/generate  (JWT)
+ * Genera un nuevo dispositivo con uid y token únicos.
+ * Un usuario solo puede tener un dispositivo a la vez.
+ */
+app.post("/api/v1/devices/generate", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { device_uid, device_token } = req.body || {};
-    if (!device_uid || !device_token)
-      return res.status(400).json({ error: "MISSING_FIELDS" });
 
-    const [has] = await pool.execute(
+    // Verificar que no tenga ya uno
+    const [existing] = await pool.execute(
       `SELECT id FROM devices WHERE user_id = :userId LIMIT 1`,
       { userId }
     );
-    if (has.length)
-      return res.status(409).json({ error: "USER_ALREADY_HAS_DEVICE" });
+    if (existing.length)
+      return res.status(409).json({ error: "ALREADY_HAS_DEVICE" });
 
-    const [devRows] = await pool.execute(
-      `SELECT id, user_id FROM devices WHERE device_uid = :device_uid LIMIT 1`,
-      { device_uid }
-    );
-
-    if (devRows.length) {
-      const dev = devRows[0];
-      if (dev.user_id && dev.user_id !== userId)
-        return res.status(409).json({ error: "DEVICE_ALREADY_CLAIMED" });
-
-      await pool.execute(
-        `UPDATE devices SET user_id = :userId, device_token = :device_token WHERE id = :id`,
-        { userId, device_token, id: dev.id }
-      );
-      return res.status(201).json({ ok: true });
-    }
+    const device_uid   = "SFAM-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    const device_token = crypto.randomBytes(16).toString("hex");
 
     await pool.execute(
       `INSERT INTO devices (device_uid, device_token, user_id)
        VALUES (:device_uid, :device_token, :userId)`,
       { device_uid, device_token, userId }
     );
-    return res.status(201).json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
 
-app.post("/api/v1/devices/register", async (req, res) => {
-  try {
-    const device_uid   = "SFAM-" + crypto.randomBytes(4).toString("hex").toUpperCase();
-    const device_token = crypto.randomBytes(16).toString("hex");
-
-    await pool.execute(
-      `INSERT INTO devices (device_uid, device_token) VALUES (:device_uid, :device_token)`,
-      { device_uid, device_token }
-    );
-
-    await auditLog("DEVICE_REGISTER", null, `Nuevo dispositivo registrado: ${device_uid}`, { device_uid });
+    await auditLog("DEVICE_REGISTER", userId,
+      `Dispositivo generado: ${device_uid}`, { device_uid });
 
     return res.status(201).json({ device_uid, device_token });
   } catch (e) {
-    console.error(e);
+    console.error("[Device/Generate]", e);
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
+
+app.get("/api/v1/devices/token/:uid", async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT device_token FROM devices WHERE device_uid = :uid LIMIT 1`,
+      { uid: req.params.uid }
+    );
+    if (!rows.length) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.json({ device_token: rows[0].device_token });
+  } catch (e) {
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * DELETE /api/v1/devices/mine  (JWT)
+ * Desvincula el dispositivo del usuario autenticado.
+ */
+app.delete("/api/v1/devices/mine", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await pool.execute(
+      `DELETE FROM devices WHERE user_id = :userId`,
+      { userId }
+    );
+
+    await auditLog("DEVICE_UNLINK", userId, `Dispositivo desvinculado`);
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Device/Unlink]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * POST /api/v1/iot/alert  (device_uid + device_token)
+ * Recibe alerta del dispositivo IoT.
+ */
 
 /* ═══════════════════════════ ALERTS ═══════════════════════════ */
 
