@@ -73,5 +73,5 @@ Características:
 ---
 
 ## 🚀 ¿Cuando sale la versión oficial?
-
+ 
 Espero que dentro de poco, estoy poniendo mucho esfuerzo, ganas y en general, me apasiona este proyecto.
