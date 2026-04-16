@@ -15,7 +15,7 @@ import Family from "../pages/Family";
 import Contacts from "../pages/Contacts";
 import Device from "../pages/Device";
 import Audit from "../pages/Audit";
-import Settings from "../pages/Settings";
+import AdminPanel from "../pages/AdminPanel";
 
 export default function AppRouter() {
   return (
@@ -23,11 +23,21 @@ export default function AppRouter() {
       <Route path="/" element={<Navigate to="/login" replace />} />
 
       {/* Rutas públicas */}
-      <Route path="/login" element={<Login />} />
+      <Route path="/login"    element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/verify" element={<Verify />} />
+      <Route path="/verify"   element={<Verify />} />
 
-      {/* Rutas protegidas */}
+      {/* Panel Admin — layout propio */}
+      <Route
+        path="/admin"
+        element={
+          <RequireAuth allowRoles={["ADMIN"]}>
+            <AdminPanel />
+          </RequireAuth>
+        }
+      />
+
+      {/* Rutas protegidas — layout normal */}
       <Route
         path="/app"
         element={
@@ -38,47 +48,24 @@ export default function AppRouter() {
       >
         <Route index element={<Navigate to="/app/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="alerts" element={<Alerts />} />
-        <Route path="map" element={<MapLive />} />
-        <Route path="history" element={<History />} />
+        <Route path="alerts"    element={<Alerts />} />
+        <Route path="map"       element={<MapLive />} />
+        <Route path="history"   element={<History />} />
 
-        <Route
-          path="stats"
-          element={
-            <RequireAuth allowRoles={["ADMIN", "JEFE_FAMILIA"]}>
-              <Stats />
-            </RequireAuth>
-          }
+        <Route path="stats"
+          element={<RequireAuth allowRoles={["ADMIN","JEFE_FAMILIA"]}><Stats /></RequireAuth>}
         />
-        <Route
-          path="family"
-          element={
-            <RequireAuth allowRoles={["ADMIN", "JEFE_FAMILIA", "MIEMBRO"]}>
-              <Family />
-            </RequireAuth>
-          }
+        <Route path="family"
+          element={<RequireAuth allowRoles={["ADMIN","JEFE_FAMILIA","MIEMBRO"]}><Family /></RequireAuth>}
         />
-        <Route
-          path="contacts"
-          element={
-            <RequireAuth allowRoles={["ADMIN", "JEFE_FAMILIA", "MIEMBRO"]}>
-              <Contacts />
-            </RequireAuth>
-          }
+        <Route path="contacts"
+          element={<RequireAuth allowRoles={["ADMIN","JEFE_FAMILIA","MIEMBRO"]}><Contacts /></RequireAuth>}
         />
-
         <Route path="device" element={<Device />} />
-
-        <Route
-          path="audit"
-          element={
-            <RequireAuth allowRoles={["ADMIN"]}>
-              <Audit />
-            </RequireAuth>
-          }
+        <Route path="audit"
+          element={<RequireAuth allowRoles={["ADMIN"]}><Audit /></RequireAuth>}
         />
 
-        <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
       </Route>
 

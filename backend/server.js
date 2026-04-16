@@ -1081,6 +1081,335 @@ app.patch("/api/v1/contacts/:id", authRequired, async (req, res) => {
   }
 });
 
+// ── Middleware solo para ADMIN ───────────────────────────────────
+function adminRequired(req, res, next) {
+  if (req.user?.role !== "ADMIN")
+    return res.status(403).json({ error: "FORBIDDEN" });
+  next();
+}
+
+/**
+ * GET /api/v1/admin/overview
+ * Métricas globales del sistema
+ */
+app.get("/api/v1/admin/overview", authRequired, adminRequired, async (req, res) => {
+  try {
+    const [[users]]   = await pool.execute(`SELECT COUNT(*) AS total FROM users`);
+    const [[groups]]  = await pool.execute(`SELECT COUNT(*) AS total FROM family_groups`);
+    const [[devices]] = await pool.execute(`SELECT COUNT(*) AS total FROM devices`);
+    const [[alerts]]  = await pool.execute(`SELECT COUNT(*) AS total FROM alerts`);
+    const [[active]]  = await pool.execute(
+      `SELECT COUNT(*) AS total FROM alerts WHERE status IN ('ACTIVE','RECEIVED')`
+    );
+
+    const [recent] = await pool.execute(
+      `SELECT a.id, a.status, a.source, a.created_at,
+              u.full_name AS user_name,
+              fg.name AS group_name
+       FROM alerts a
+       JOIN users u ON u.id = a.user_id
+       LEFT JOIN users ug ON ug.id = a.user_id
+       LEFT JOIN family_groups fg ON fg.id = ug.family_group_id
+       ORDER BY a.created_at DESC
+       LIMIT 5`
+    );
+
+    return res.json({
+      totals: {
+        users:   users.total,
+        groups:  groups.total,
+        devices: devices.total,
+        alerts:  alerts.total,
+        activeAlerts: active.total,
+      },
+      recent,
+    });
+  } catch (e) {
+    console.error("[Admin/Overview]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * GET /api/v1/admin/users
+ * Todos los usuarios del sistema
+ */
+app.get("/api/v1/admin/users", authRequired, adminRequired, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT u.id, u.full_name, u.email, u.role, u.verified, u.created_at,
+              fg.name AS group_name
+       FROM users u
+       LEFT JOIN family_groups fg ON fg.id = u.family_group_id
+       ORDER BY u.created_at DESC`
+    );
+    return res.json({ users: rows });
+  } catch (e) {
+    console.error("[Admin/Users]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * PATCH /api/v1/admin/users/:id
+ * Editar rol y nombre de usuario
+ */
+app.patch("/api/v1/admin/users/:id", authRequired, adminRequired, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { full_name, role } = req.body || {};
+
+    const validRoles = ["MIEMBRO", "JEFE_FAMILIA", "ADMIN"];
+    if (role && !validRoles.includes(role))
+      return res.status(400).json({ error: "INVALID_ROLE" });
+
+    await pool.execute(
+      `UPDATE users SET
+         full_name = COALESCE(:full_name, full_name),
+         role      = COALESCE(:role, role)
+       WHERE id = :id`,
+      { full_name: full_name ?? null, role: role ?? null, id }
+    );
+
+    await auditLog("ADMIN_USER_EDIT", req.user.id,
+      `Admin editó usuario #${id}`, { targetId: id, role });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Admin/Users/Edit]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * PATCH /api/v1/admin/users/:id/password
+ * Resetear contraseña de usuario
+ */
+app.patch("/api/v1/admin/users/:id/password", authRequired, adminRequired, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { password } = req.body || {};
+
+    if (!password || password.length < 6)
+      return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    await pool.execute(
+      `UPDATE users SET password_hash = :password_hash WHERE id = :id`,
+      { password_hash, id }
+    );
+
+    await auditLog("ADMIN_PWD_RESET", req.user.id,
+      `Admin reseteó contraseña de usuario #${id}`, { targetId: id });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Admin/Users/Password]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * DELETE /api/v1/admin/users/:id
+ * Eliminar usuario
+ */
+app.delete("/api/v1/admin/users/:id", authRequired, adminRequired, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    // No permitir eliminar al propio admin
+    if (id === req.user.id)
+      return res.status(400).json({ error: "CANNOT_DELETE_SELF" });
+
+    await pool.execute(`DELETE FROM users WHERE id = :id`, { id });
+
+    await auditLog("ADMIN_USER_DELETE", req.user.id,
+      `Admin eliminó usuario #${id}`, { targetId: id });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Admin/Users/Delete]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * GET /api/v1/admin/groups
+ * Todos los grupos familiares con sus miembros
+ */
+app.get("/api/v1/admin/groups", authRequired, adminRequired, async (req, res) => {
+  try {
+    const [groups] = await pool.execute(
+      `SELECT fg.id, fg.name, fg.invite_code, fg.created_at,
+              u.full_name AS owner_name,
+              COUNT(m.id) AS member_count
+       FROM family_groups fg
+       JOIN users u ON u.id = fg.owner_id
+       LEFT JOIN users m ON m.family_group_id = fg.id
+       GROUP BY fg.id
+       ORDER BY fg.created_at DESC`
+    );
+
+    // Miembros por grupo
+    for (const g of groups) {
+      const [members] = await pool.execute(
+        `SELECT id, full_name, email, role FROM users WHERE family_group_id = :id`,
+        { id: g.id }
+      );
+      g.members = members;
+
+      const [devCount] = await pool.execute(
+        `SELECT COUNT(*) AS total FROM devices d
+         JOIN users u ON u.id = d.user_id
+         WHERE u.family_group_id = :id`,
+        { id: g.id }
+      );
+      g.device_count = devCount[0].total;
+
+      const [alertCount] = await pool.execute(
+        `SELECT COUNT(*) AS total FROM alerts a
+         JOIN users u ON u.id = a.user_id
+         WHERE u.family_group_id = :id`,
+        { id: g.id }
+      );
+      g.alert_count = alertCount[0].total;
+    }
+
+    return res.json({ groups });
+  } catch (e) {
+    console.error("[Admin/Groups]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * DELETE /api/v1/admin/groups/:id
+ * Disolver grupo familiar
+ */
+app.delete("/api/v1/admin/groups/:id", authRequired, adminRequired, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    // Quitar grupo a todos los miembros
+    await pool.execute(
+      `UPDATE users SET family_group_id = NULL, role = 'JEFE_FAMILIA'
+       WHERE family_group_id = :id`,
+      { id }
+    );
+
+    await pool.execute(`DELETE FROM family_groups WHERE id = :id`, { id });
+
+    await auditLog("ADMIN_GROUP_DISSOLVE", req.user.id,
+      `Admin disolvió grupo #${id}`, { groupId: id });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Admin/Groups/Delete]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * GET /api/v1/admin/devices
+ * Todos los dispositivos del sistema
+ */
+app.get("/api/v1/admin/devices", authRequired, adminRequired, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT d.id, d.device_uid, d.last_seen_at, d.created_at,
+              u.full_name AS owner_name, u.email AS owner_email,
+              fg.name AS group_name
+       FROM devices d
+       LEFT JOIN users u ON u.id = d.user_id
+       LEFT JOIN family_groups fg ON fg.id = u.family_group_id
+       ORDER BY d.created_at DESC`
+    );
+    return res.json({ devices: rows });
+  } catch (e) {
+    console.error("[Admin/Devices]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * DELETE /api/v1/admin/devices/:id
+ * Desvincular dispositivo
+ */
+app.delete("/api/v1/admin/devices/:id", authRequired, adminRequired, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    await pool.execute(`DELETE FROM devices WHERE id = :id`, { id });
+
+    await auditLog("ADMIN_DEVICE_UNLINK", req.user.id,
+      `Admin desvinculó dispositivo #${id}`, { deviceId: id });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Admin/Devices/Delete]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * GET /api/v1/admin/alerts
+ * Todas las alertas del sistema
+ */
+app.get("/api/v1/admin/alerts", authRequired, adminRequired, async (req, res) => {
+  try {
+    const page   = Math.max(1, parseInt(req.query.page  ?? 1));
+    const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit ?? 30)));
+    const offset = (page - 1) * limit;
+    const status = req.query.status?.toUpperCase();
+
+    const conditions = ["1=1"];
+    const params     = [];
+
+    if (status && ["RECEIVED","ACTIVE","ATTENDED","CLOSED"].includes(status)) {
+      conditions.push("a.status = ?");
+      params.push(status);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM alerts a WHERE ${where}`, params
+    );
+
+    const [rows] = await pool.execute(
+      `SELECT a.id, a.status, a.source, a.created_at, a.closed_at,
+              u.full_name AS user_name, u.email AS user_email,
+              fg.name AS group_name,
+              al.lat, al.lng
+       FROM alerts a
+       JOIN users u ON u.id = a.user_id
+       LEFT JOIN family_groups fg ON fg.id = u.family_group_id
+       LEFT JOIN alert_locations al ON al.id = (
+         SELECT id FROM alert_locations WHERE alert_id = a.id
+         ORDER BY recorded_at DESC LIMIT 1
+       )
+       WHERE ${where}
+       ORDER BY a.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`,
+      params
+    );
+
+    return res.json({
+      alerts: rows,
+      pagination: {
+        page, limit,
+        total: countRows[0].total,
+        pages: Math.ceil(countRows[0].total / limit),
+      },
+    });
+  } catch (e) {
+    console.error("[Admin/Alerts]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+
 /* ═══════════════════════════ START ═══════════════════════════ */
 
 const PORT = process.env.PORT || 4000;
