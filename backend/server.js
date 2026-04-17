@@ -301,6 +301,144 @@ app.post("/api/v1/auth/resend", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/v1/auth/forgot-password
+ * Genera un código de recuperación y lo envía por correo.
+ */
+app.post("/api/v1/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const [rows] = await pool.execute(
+      `SELECT id, full_name FROM users WHERE email = :email LIMIT 1`,
+      { email }
+    );
+
+    const u = rows[0];
+    if (!u) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    const code    = generateCode();                              // 6 dígitos, ya existe en tu código
+    const expires = new Date(Date.now() + 15 * 60 * 1000);      // 15 minutos
+
+    await pool.execute(
+      `UPDATE users SET reset_code = :code, reset_expires = :expires WHERE id = :id`,
+      { code, expires, id: u.id }
+    );
+
+    await auditLog("PASSWORD_RESET_REQUEST", u.id,
+      `Solicitud de recuperación de contraseña: ${email}`);
+
+    // Reutilizamos Resend igual que en el correo de verificación
+    await resend.emails.send({
+      from: "SIGMAFAM <noreply@castoresceti.com>",
+      to: email,
+      subject: "Recupera tu contraseña — SIGMAFAM",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+          <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
+              <tr>
+                <td align="center">
+                  <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
+                    <tr>
+                      <td style="background:#0f172a;padding:24px 32px;">
+                        <span style="background:#1e293b;border-radius:8px;padding:8px 12px;color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.5px;">SIGMAFAM</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:32px;">
+                        <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#0f172a;">
+                          Hola, ${u.full_name} 👋
+                        </h1>
+                        <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6;">
+                          Recibimos una solicitud para restablecer tu contraseña. Usa este código:
+                        </p>
+                        <div style="background:#f1f5f9;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
+                          <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#0f172a;font-family:monospace;">
+                            ${code}
+                          </div>
+                          <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">
+                            Este código expira en <strong>15 minutos</strong>
+                          </p>
+                        </div>
+                        <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6;">
+                          Si no solicitaste esto, puedes ignorar este correo de forma segura.
+                        </p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:16px 32px;border-top:1px solid #f1f5f9;">
+                        <p style="margin:0;font-size:12px;color:#cbd5e1;text-align:center;">
+                          © 2026 SIGMAFAM · Sistema Integral de Seguridad Familiar
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `,
+    });
+
+    return res.json({ ok: true, message: "Código de recuperación enviado" });
+  } catch (e) {
+    console.error("[ForgotPassword]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * POST /api/v1/auth/reset-password
+ * Valida el código y actualiza la contraseña.
+ */
+app.post("/api/v1/auth/reset-password", async (req, res) => {
+  try {
+    const { email, code, password } = req.body || {};
+    if (!email || !code || !password)
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    if (password.length < 6)
+      return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
+
+    const [rows] = await pool.execute(
+      `SELECT id, reset_code, reset_expires FROM users WHERE email = :email LIMIT 1`,
+      { email }
+    );
+
+    const u = rows[0];
+    if (!u) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    if (!u.reset_code || !u.reset_expires)
+      return res.status(400).json({ error: "CODE_EXPIRED" });
+
+    if (new Date() > new Date(u.reset_expires))
+      return res.status(400).json({ error: "CODE_EXPIRED" });
+
+    if (u.reset_code !== code.trim())
+      return res.status(400).json({ error: "INVALID_CODE" });
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    await pool.execute(
+      `UPDATE users SET password_hash = :password_hash, reset_code = NULL, reset_expires = NULL WHERE id = :id`,
+      { password_hash, id: u.id }
+    );
+
+    await auditLog("PASSWORD_RESET", u.id,
+      `Contraseña restablecida para: ${email}`);
+
+    return res.json({ ok: true, message: "Contraseña actualizada correctamente" });
+  } catch (e) {
+    console.error("[ResetPassword]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 app.post("/api/v1/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};

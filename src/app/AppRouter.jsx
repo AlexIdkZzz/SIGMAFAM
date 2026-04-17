@@ -6,6 +6,8 @@ import AppLayout from "./layout/AppLayout";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import Verify from "../pages/Verify";
+import ForgotPassword from "../pages/ForgotPassword";
+import ResetPassword from "../pages/ResetPassword";
 import Dashboard from "../pages/Dashboard";
 import Alerts from "../pages/Alerts";
 import MapLive from "../pages/MapLive";
@@ -23,9 +25,11 @@ export default function AppRouter() {
       <Route path="/" element={<Navigate to="/login" replace />} />
 
       {/* Rutas públicas */}
-      <Route path="/login"    element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/verify"   element={<Verify />} />
+      <Route path="/login"           element={<Login />} />
+      <Route path="/register"        element={<Register />} />
+      <Route path="/verify"          element={<Verify />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password"  element={<ResetPassword />} />
 
       {/* Panel Admin — layout propio */}
       <Route

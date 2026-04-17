@@ -15,7 +15,6 @@ export default function Login() {
     e.preventDefault();
     setError("");
 
-    // Validación básica en frontend
     if (!email.trim() || !password.trim()) {
       setError("Por favor ingresa tu correo y contraseña.");
       return;
@@ -26,7 +25,6 @@ export default function Login() {
       await login(email.trim(), password);
       nav("/app/dashboard");
     } catch (err) {
-      // Mensajes amigables según el error del backend
       const msg = err.message ?? "";
       if (msg.includes("NOT_FOUND") || msg.includes("INVALID")) {
         setError("Correo o contraseña incorrectos.");
@@ -87,9 +85,17 @@ export default function Login() {
 
           {/* Password */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Contraseña
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-slate-600">
+                Contraseña
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-xs text-slate-500 hover:text-slate-900 hover:underline transition"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
             <input
               type="password"
               autoComplete="current-password"
