@@ -18,6 +18,7 @@ import Contacts from "../pages/Contacts";
 import Device from "../pages/Device";
 import Audit from "../pages/Audit";
 import AdminPanel from "../pages/AdminPanel";
+import Store from "../pages/Store";
 
 export default function AppRouter() {
   return (
@@ -55,6 +56,7 @@ export default function AppRouter() {
         <Route path="alerts"    element={<Alerts />} />
         <Route path="map"       element={<MapLive />} />
         <Route path="history"   element={<History />} />
+        <Route path="store"     element={<Store />} />
 
         <Route path="stats"
           element={<RequireAuth allowRoles={["ADMIN","JEFE_FAMILIA"]}><Stats /></RequireAuth>}
