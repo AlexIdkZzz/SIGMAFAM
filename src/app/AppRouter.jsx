@@ -18,7 +18,6 @@ import Contacts from "../pages/Contacts";
 import Device from "../pages/Device";
 import Audit from "../pages/Audit";
 import AdminPanel from "../pages/AdminPanel";
-import Store from "../pages/Store";
 
 export default function AppRouter() {
   return (
