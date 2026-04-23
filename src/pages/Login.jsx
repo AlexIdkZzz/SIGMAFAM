@@ -27,7 +27,14 @@ const Login = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("El servidor no respondió correctamente. Verifica que el backend esté activo.");
+      }
+
       if (!res.ok) {
         if (data.error === "EMAIL_NOT_VERIFIED") {
           navigate("/verify", { state: { email } });
