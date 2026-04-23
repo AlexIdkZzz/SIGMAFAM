@@ -40,7 +40,7 @@ export default function AdminAlerts() {
     <SectionCard title="Alertas del sistema" count={pagination.total}>
       <SearchBar value={search} onChange={setSearch} placeholder="Buscar por usuario, grupo o ID..." />
 
-      <div className="flex gap-1 px-5 py-2 border-b border-slate-100 bg-slate-50">
+      <div className="flex flex-wrap gap-1 px-5 py-2 border-b border-slate-100 bg-slate-50">
         {STATUS_OPTIONS.map((s) => (
           <button key={s} onClick={() => { setFilter(s); setPage(1); }}
             className={`text-xs px-3 py-1 rounded-full transition-colors ${filterStatus === s ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-200"}`}>
@@ -49,7 +49,8 @@ export default function AdminAlerts() {
         ))}
       </div>
 
-      <table className="w-full text-[13px]">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[750px] text-[13px]">
         <TableHead cols={["ID", "Usuario", "Grupo", "Origen", "Coordenadas", "Estado", "Fecha"]} />
         <tbody>
           {loading ? <LoadingRows cols={7} /> :
@@ -79,6 +80,7 @@ export default function AdminAlerts() {
           ))}
         </tbody>
       </table>
+      </div>
 
       {pagination.pages > 1 && (
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100">

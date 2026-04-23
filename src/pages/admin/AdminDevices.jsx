@@ -54,7 +54,8 @@ export default function AdminDevices() {
   return (
     <>
       <SectionCard title="Dispositivos IoT" count={`${devices.length} total · ${online} online`}>
-        <table className="w-full text-[13px]">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[750px] text-[13px]">
           <TableHead cols={["UID", "Propietario", "Grupo", "Estado", "Última conexión", "Vinculado", "Acciones"]} />
           <tbody>
             {loading ? <LoadingRows cols={7} /> :
@@ -79,6 +80,7 @@ export default function AdminDevices() {
             ))}
           </tbody>
         </table>
+        </div>
       </SectionCard>
 
       {modal && (
