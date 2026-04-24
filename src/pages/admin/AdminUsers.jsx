@@ -31,17 +31,17 @@ export default function AdminUsers() {
   );
 
   async function handleEdit(id, data) {
-    await apiFetch(`/admin/users/${id}`, { method: "PATCH", body: data });
+    await apiFetch(/admin/users/${id}, { method: "PATCH", body: data });
     load(); setModal(null);
   }
 
   async function handleDelete(id) {
-    await apiFetch(`/admin/users/${id}`, { method: "DELETE" });
+    await apiFetch(/admin/users/${id}, { method: "DELETE" });
     load(); setModal(null);
   }
 
   async function handlePassword(id, password) {
-    await apiFetch(`/admin/users/${id}/password`, { method: "PATCH", body: { password } });
+    await apiFetch(/admin/users/${id}/password, { method: "PATCH", body: { password } });
     setModal(null);
   }
 

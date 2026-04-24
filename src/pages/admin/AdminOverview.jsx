@@ -5,7 +5,7 @@ function StatCard({ label, value, sub, danger }) {
   return (
     <div className="bg-slate-100 rounded-lg px-4 py-3.5">
       <p className="text-xs text-slate-500 mb-1">{label}</p>
-      <p className={`text-2xl font-medium ${danger ? "text-red-500" : ""}`}>{value ?? "—"}</p>
+      <p className={text-2xl font-medium ${danger ? "text-red-500" : ""}}>{value ?? "—"}</p>
       <p className="text-[11px] text-slate-400 mt-1">{sub}</p>
     </div>
   );
@@ -35,7 +35,7 @@ export default function AdminOverview() {
         <StatCard label="Usuarios totales"   value={t.users}        sub="Registrados en el sistema" />
         <StatCard label="Grupos familiares"  value={t.groups}       sub="Grupos activos" />
         <StatCard label="Dispositivos"       value={t.devices}      sub="Vinculados" />
-        <StatCard label="Alertas activas"    value={t.activeAlerts} sub={`${t.alerts} en total`} danger={t.activeAlerts > 0} />
+        <StatCard label="Alertas activas"    value={t.activeAlerts} sub={${t.alerts} en total} danger={t.activeAlerts > 0} />
       </div>
 
       <SectionCard title="Actividad reciente">

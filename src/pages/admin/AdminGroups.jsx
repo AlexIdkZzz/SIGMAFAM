@@ -23,7 +23,7 @@ export default function AdminGroups() {
   useEffect(() => { load(); }, []);
 
   async function handleDissolve(id) {
-    await apiFetch(`/admin/groups/${id}`, { method: "DELETE" });
+    await apiFetch(/admin/groups/${id}, { method: "DELETE" });
     load(); setModal(null);
   }
 

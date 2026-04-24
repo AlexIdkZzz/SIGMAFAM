@@ -21,7 +21,7 @@ export default function AdminAlerts() {
     const params = new URLSearchParams({ page, limit: 30 });
     if (filterStatus !== "Todos") params.append("status", filterStatus);
 
-    apiFetch(`/admin/alerts?${params}`)
+    apiFetch(/admin/alerts?${params})
       .then((d) => { setAlerts(d.alerts); setPag(d.pagination); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -43,7 +43,7 @@ export default function AdminAlerts() {
       <div className="flex flex-wrap gap-1 px-5 py-2 border-b border-slate-100 bg-slate-50">
         {STATUS_OPTIONS.map((s) => (
           <button key={s} onClick={() => { setFilter(s); setPage(1); }}
-            className={`text-xs px-3 py-1 rounded-full transition-colors ${filterStatus === s ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-200"}`}>
+            className={text-xs px-3 py-1 rounded-full transition-colors ${filterStatus === s ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-200"}}>
             {s}
           </button>
         ))}
@@ -72,7 +72,7 @@ export default function AdminAlerts() {
               <td className="px-5 py-2.5 text-slate-500 text-xs">{a.group_name ?? "Sin grupo"}</td>
               <td className="px-5 py-2.5 text-xs">{a.source}</td>
               <td className="px-5 py-2.5 font-mono text-[11px] text-slate-400">
-                {a.lat != null ? `${Number(a.lat).toFixed(4)}, ${Number(a.lng).toFixed(4)}` : "—"}
+                {a.lat != null ? ${Number(a.lat).toFixed(4)}, ${Number(a.lng).toFixed(4)} : "—"}
               </td>
               <td className="px-5 py-2.5"><Badge className={alertBadgeClass(a.status)}>{a.status}</Badge></td>
               <td className="px-5 py-2.5 text-xs text-slate-400">{formatDate(a.created_at)}</td>
