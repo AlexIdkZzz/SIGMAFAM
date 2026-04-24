@@ -1,5 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
+import {
+  Shield, Mail, ArrowRight, ArrowLeft,
+  AlertCircle, Loader2, Sun, Moon,
+  CheckCircle2, KeyRound, MailCheck, Lock, Clock
+} from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
@@ -8,6 +13,12 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
   const [sent, setSent]       = useState(false);
+  const [dark, setDark]       = useState(false);
+
+  const emailValid = useMemo(
+    () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+    [email]
+  );
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -33,114 +44,296 @@ export default function ForgotPassword() {
     }
   }
 
+  const d = dark;
+
   return (
-    <div className="min-h-screen grid place-items-center bg-slate-50 p-4">
-      <div className="w-full max-w-sm">
+    <div className={`min-h-screen w-full flex font-sans transition-colors duration-500 ${d ? "bg-[#0a0f1e]" : "bg-white"}`}>
 
-        {/* Header */}
-        <div className="mb-6 text-center">
-          <span className="inline-flex items-center gap-2">
-            <span className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-              </svg>
+      {/* Toggle dark mode */}
+      <button
+        onClick={() => setDark(!d)}
+        aria-label="Cambiar tema"
+        className={`fixed top-4 right-4 z-50 group flex items-center gap-2 pl-2.5 pr-3.5 py-2 rounded-full text-xs font-bold border backdrop-blur-md transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]
+          ${d
+            ? "bg-slate-800/70 border-slate-700 text-slate-300 hover:border-slate-500 hover:bg-slate-800"
+            : "bg-white/70 border-slate-200 text-slate-600 hover:border-slate-400 hover:bg-white shadow-sm"}`}
+      >
+        <span className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-500
+          ${d ? "bg-slate-700 text-amber-300 rotate-0" : "bg-slate-900 text-white -rotate-12"}`}>
+          {d ? <Sun size={12} /> : <Moon size={12} />}
+        </span>
+        <span className="hidden sm:inline">{d ? "Claro" : "Oscuro"}</span>
+      </button>
+
+      {/* ── LEFT: Formulario ── */}
+      <div className={`w-full lg:w-[480px] lg:min-w-[480px] flex flex-col justify-center
+        min-h-screen
+        px-5 sm:px-10 lg:px-16
+        py-16 sm:py-12
+        z-10 transition-colors duration-500
+        ${d ? "bg-[#0d1426] lg:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)]" : "bg-white lg:shadow-2xl"}`}>
+
+        <div className="max-w-sm w-full mx-auto">
+
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className={`relative w-10 h-10 sm:w-11 sm:h-11 rounded-[14px] flex items-center justify-center transition-all duration-300 shrink-0 overflow-hidden
+              ${d ? "bg-slate-100" : "bg-slate-900"}`}>
+              <Shield className={`relative z-10 ${d ? "text-slate-900" : "text-white"}`} size={20} />
+              <span className={`absolute inset-0 opacity-60
+                ${d
+                  ? "bg-gradient-to-br from-white/0 via-white/30 to-transparent"
+                  : "bg-gradient-to-br from-white/15 via-transparent to-transparent"}`} />
+            </div>
+            <span className={`text-lg sm:text-xl font-black tracking-tighter transition-colors ${d ? "text-slate-100" : "text-slate-900"}`}>
+              SIGMA<span className={d ? "text-sky-400" : "text-sky-600"}>FAM</span>
             </span>
-            <span className="font-extrabold text-slate-900 text-xl tracking-tight">SIGMAFAM</span>
-          </span>
-          <p className="text-sm text-slate-500 mt-2">Recuperar contraseña</p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          </div>
 
           {sent ? (
-            /* ── Éxito ── */
-            <div className="text-center">
-              <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-                </svg>
+            /* ── ESTADO DE ÉXITO ── */
+            <div className="animate-[fadeIn_0.4s_ease-out]">
+              {/* Icono de éxito con glow */}
+              <div className="relative w-16 h-16 mb-6">
+                <div className={`absolute inset-0 rounded-2xl blur-xl opacity-60
+                  ${d ? "bg-emerald-500/40" : "bg-emerald-400/60"}`} />
+                <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center
+                  ${d ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-emerald-50 border border-emerald-200"}`}>
+                  <MailCheck className={d ? "text-emerald-400" : "text-emerald-600"} size={28} />
+                </div>
               </div>
-              <h2 className="font-extrabold text-slate-900 mb-2">Revisa tu correo</h2>
-              <p className="text-sm text-slate-500 mb-6">
-                Enviamos un código de recuperación a<br />
-                <span className="font-semibold text-slate-800">{email}</span>
+
+              <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight mb-2 transition-colors ${d ? "text-slate-100" : "text-slate-900"}`}>
+                Revisa tu correo
+              </h1>
+              <p className={`text-sm font-medium mb-2 leading-relaxed transition-colors ${d ? "text-slate-400" : "text-slate-500"}`}>
+                Enviamos un código de recuperación a:
               </p>
+              <div className={`mb-6 p-3 rounded-xl flex items-center gap-2.5 border
+                ${d ? "bg-[#111827] border-slate-700" : "bg-slate-50 border-slate-200"}`}>
+                <Mail className={d ? "text-sky-400" : "text-sky-600"} size={15} />
+                <span className={`text-sm font-bold ${d ? "text-slate-200" : "text-slate-900"}`}>
+                  {email}
+                </span>
+              </div>
+
+              {/* Aviso de caducidad */}
+              <div className={`mb-6 flex items-start gap-2.5 text-xs font-medium p-2.5 rounded-lg
+                ${d ? "text-slate-500" : "text-slate-500"}`}>
+                <Clock size={13} className="shrink-0 mt-0.5" />
+                <span>El código expira en 15 minutos. Si no lo ves, revisa tu carpeta de spam.</span>
+              </div>
+
+              {/* Botón: ingresar código */}
               <Link
                 to="/reset-password"
                 state={{ email }}
-                className="w-full block text-center px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition-colors"
+                className={`relative w-full overflow-hidden flex items-center justify-center gap-2 py-3.5 sm:py-4 rounded-xl font-bold text-sm
+                  tracking-tight transition-all duration-300 active:scale-[0.98] group
+                  ${d
+                    ? "bg-gradient-to-b from-slate-50 to-slate-200 text-slate-900 hover:from-white hover:to-slate-100"
+                    : "bg-gradient-to-b from-slate-800 to-slate-950 text-white hover:from-slate-700 hover:to-slate-900"}`}
+                style={{
+                  boxShadow: d
+                    ? "inset 0 1px 0 rgba(255,255,255,0.6), 0 10px 25px -5px rgba(0,0,0,0.4)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.12), 0 10px 25px -5px rgba(15,23,42,0.25)"
+                }}
               >
-                Ingresar código →
+                <span className={`absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out pointer-events-none
+                  ${d
+                    ? "bg-gradient-to-r from-transparent via-sky-400/20 to-transparent"
+                    : "bg-gradient-to-r from-transparent via-white/15 to-transparent"}`} />
+                <span className="relative z-10 flex items-center gap-2">
+                  Ingresar código
+                  <ArrowRight size={15} className="transition-transform duration-300 group-hover:translate-x-1" />
+                </span>
               </Link>
-              <p className="text-xs text-slate-400 mt-4">
-                ¿No llegó?{" "}
-                <button onClick={() => setSent(false)} className="text-slate-700 font-semibold hover:underline">
+
+              <p className={`mt-5 text-center text-xs font-medium ${d ? "text-slate-500" : "text-slate-500"}`}>
+                ¿No llegó el correo?{" "}
+                <button
+                  onClick={() => { setSent(false); setError(""); }}
+                  className={`font-bold underline underline-offset-4 decoration-2 transition-colors
+                    ${d ? "text-slate-200 hover:text-sky-400 decoration-slate-600" : "text-slate-900 hover:text-sky-600 decoration-slate-300"}`}
+                >
                   Intentar de nuevo
                 </button>
               </p>
             </div>
           ) : (
-            /* ── Formulario ── */
+            /* ── FORMULARIO ── */
             <>
-              <div className="text-center mb-6">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-slate-600">
-                  Ingresa tu correo y te enviaremos un código para restablecer tu contraseña.
-                </p>
+              {/* Badge móvil */}
+              <div className={`lg:hidden inline-flex items-center gap-2 px-2.5 py-1 rounded-full mb-4 text-[10px] font-bold tracking-widest uppercase border
+                ${d ? "bg-slate-800/60 border-slate-700 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500"}`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse shadow-[0_0_6px_rgba(56,189,248,0.8)]" />
+                Recuperación segura
               </div>
 
+              <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight mb-2 transition-colors ${d ? "text-slate-100" : "text-slate-900"}`}>
+                ¿Olvidaste tu contraseña?
+              </h1>
+              <p className={`text-sm font-medium mb-7 leading-relaxed transition-colors ${d ? "text-slate-400" : "text-slate-500"}`}>
+                Ingresa tu correo y te enviaremos un código para restablecerla en segundos.
+              </p>
+
+              {/* Error */}
               {error && (
-                <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-3 py-2 mb-4">
-                  <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                  </svg>
-                  {error}
+                <div className={`mb-5 p-3.5 border-l-4 border-red-500 rounded-r-xl flex items-center gap-3 animate-[shake_0.4s_ease-in-out]
+                  ${d ? "bg-red-950/40" : "bg-red-50"}`}>
+                  <AlertCircle className="text-red-500 shrink-0" size={17} />
+                  <p className={`text-xs sm:text-sm font-semibold ${d ? "text-red-400" : "text-red-700"}`}>{error}</p>
                 </div>
               )}
 
-              <form onSubmit={onSubmit} className="space-y-4">
+              {/* Form */}
+              <form onSubmit={onSubmit} className="space-y-4 sm:space-y-5">
+
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Correo electrónico</label>
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="correo@ejemplo.com"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
-                  />
+                  <label className={`block text-xs font-bold mb-2 transition-colors ${d ? "text-slate-300" : "text-slate-700"}`}>
+                    Correo electrónico
+                  </label>
+                  <div className="relative group">
+                    <Mail
+                      size={15}
+                      className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors
+                        ${d ? "text-slate-500 group-focus-within:text-sky-400" : "text-slate-400 group-focus-within:text-slate-900"}`}
+                    />
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="correo@ejemplo.com"
+                      className={`block w-full pl-10 pr-11 py-3 sm:py-3.5 rounded-xl text-sm font-medium outline-none border transition-all duration-200
+                        ${d
+                          ? "bg-[#111827] border-slate-700 text-slate-100 placeholder:text-slate-600 focus:border-sky-500/60 focus:bg-[#1a2234] focus:ring-4 focus:ring-sky-500/10"
+                          : "bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-900/5"}`}
+                    />
+                    <div className={`absolute right-4 top-1/2 -translate-y-1/2 transition-all duration-300
+                      ${emailValid ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"}`}>
+                      <CheckCircle2 size={16} className={d ? "text-emerald-400" : "text-emerald-500"} />
+                    </div>
+                  </div>
                 </div>
 
+                {/* ── BOTÓN PRINCIPAL ── */}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className={`relative w-full overflow-hidden flex items-center justify-center gap-2 py-3.5 sm:py-4 rounded-xl font-bold text-sm
+                    tracking-tight transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed mt-1 group
+                    ${d
+                      ? "bg-gradient-to-b from-slate-50 to-slate-200 text-slate-900 hover:from-white hover:to-slate-100"
+                      : "bg-gradient-to-b from-slate-800 to-slate-950 text-white hover:from-slate-700 hover:to-slate-900"}`}
+                  style={{
+                    boxShadow: d
+                      ? "inset 0 1px 0 rgba(255,255,255,0.6), 0 10px 25px -5px rgba(0,0,0,0.4)"
+                      : "inset 0 1px 0 rgba(255,255,255,0.12), 0 10px 25px -5px rgba(15,23,42,0.25)"
+                  }}
                 >
+                  <span className={`absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out pointer-events-none
+                    ${d
+                      ? "bg-gradient-to-r from-transparent via-sky-400/20 to-transparent"
+                      : "bg-gradient-to-r from-transparent via-white/15 to-transparent"}`} />
+
                   {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
-                      </svg>
+                    <span className="relative z-10 flex items-center gap-2">
+                      <Loader2 className="animate-spin" size={17} />
                       Enviando...
                     </span>
-                  ) : "Enviar código de recuperación"}
+                  ) : (
+                    <span className="relative z-10 flex items-center gap-2">
+                      Enviar código de recuperación
+                      <ArrowRight size={15} className="transition-transform duration-300 group-hover:translate-x-1" />
+                    </span>
+                  )}
                 </button>
               </form>
 
-              <p className="text-sm text-slate-500 text-center mt-4">
-                <Link to="/login" className="text-slate-900 font-semibold hover:underline">
-                  ← Volver al inicio de sesión
-                </Link>
-              </p>
+              <Link
+                to="/login"
+                className={`mt-8 inline-flex items-center gap-1.5 text-xs font-bold transition-colors group
+                  ${d ? "text-slate-400 hover:text-sky-400" : "text-slate-500 hover:text-slate-900"}`}
+              >
+                <ArrowLeft size={13} className="transition-transform duration-300 group-hover:-translate-x-1" />
+                Volver al inicio de sesión
+              </Link>
             </>
           )}
         </div>
       </div>
+
+      {/* ── RIGHT: Decorativo — solo en desktop ── */}
+      <div className="hidden lg:flex flex-1 relative bg-[#0f172a] items-center justify-center overflow-hidden">
+
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
+            backgroundSize: "60px 60px"
+          }}
+        />
+
+        <div className="absolute top-[-80px] right-[-80px] w-96 h-96 rounded-full pointer-events-none animate-[pulse_6s_ease-in-out_infinite]"
+          style={{ background: "radial-gradient(circle, rgba(14,165,233,0.14) 0%, transparent 70%)", filter: "blur(60px)" }} />
+        <div className="absolute bottom-[-60px] left-[-60px] w-80 h-80 rounded-full pointer-events-none animate-[pulse_8s_ease-in-out_infinite]"
+          style={{ background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)", filter: "blur(60px)" }} />
+
+        <div className="relative z-10 max-w-[420px] w-full px-10">
+
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 backdrop-blur-sm border border-slate-700 text-slate-400 text-[11px] font-bold tracking-widest uppercase mb-8">
+            <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+            Proceso seguro
+          </div>
+
+          <h2 className="text-[42px] font-black text-white leading-[1.08] mb-5 tracking-tighter">
+            Recupera el<br />acceso en{" "}
+            <span className="text-sky-400">3 pasos.</span>
+          </h2>
+
+          <p className="text-slate-500 text-[15px] leading-relaxed font-medium mb-8">
+            Te enviamos un código único a tu correo. Caduca en 15 minutos y solo puede usarse una vez.
+          </p>
+
+          {/* Timeline de pasos */}
+          <div className="space-y-3">
+            {[
+              { Icon: Mail,      title: "Ingresa tu correo",       desc: "Lo verificamos en segundos"     },
+              { Icon: KeyRound,  title: "Recibe tu código",        desc: "Único y con expiración automática" },
+              { Icon: Lock,      title: "Crea nueva contraseña",   desc: "Mínimo 6 caracteres seguros"    },
+            ].map(({ Icon, title, desc }, i) => (
+              <div key={title} className="relative flex items-start gap-3 p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-sky-500/30 hover:bg-white/[0.05] transition-all duration-300 group">
+                <div className="relative shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center group-hover:bg-sky-500/20 transition-colors">
+                    <Icon className="text-sky-400" size={16} />
+                  </div>
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center shadow-lg shadow-sky-500/40">
+                    {i + 1}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm leading-tight">{title}</p>
+                  <p className="text-slate-500 text-xs mt-0.5 font-medium">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-4px); }
+          75% { transform: translateX(4px); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
