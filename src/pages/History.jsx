@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Drawer from "./_drawer";
-import { useAlerts } from "../alerts/AlertsContext";
+import { useAlerts } from "../app/alerts/AlertsContext";
 import MiniMap from "../maps/MiniMap";
 import {
   Clock, Search, Filter, Eye, ChevronLeft, ChevronRight, 
