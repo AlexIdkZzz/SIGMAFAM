@@ -83,14 +83,16 @@ function NoGroup({ token, onRefresh }) {
         </p>
       </div>
 
-      <Card className="p-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0d1426] shadow-2xl">
+      {/* FIX: Se eliminó bg-white y se puso bg-transparent para que mande el dark:bg */}
+      <Card className="p-2 border-slate-200 dark:border-slate-800 bg-transparent dark:bg-[#0d1426] shadow-2xl">
         {!mode ? (
           <div className="space-y-2">
             {[
               { id: 'create', icon: UserPlus, label: 'Serás el administrador', title: 'Crear nuevo grupo' },
               { id: 'join', icon: Shield, label: 'Usa una invitación', title: 'Unirme con código' }
             ].map((btn) => (
-              <button key={btn.id} onClick={() => setMode(btn.id)} className="w-full flex items-center gap-5 p-5 rounded-2xl border border-transparent hover:border-blue-500/30 bg-slate-50 dark:bg-white/[0.03] hover:dark:bg-white/[0.05] transition-all group">
+              <button key={btn.id} onClick={() => setMode(btn.id)} className="w-full flex items-center gap-5 p-5 rounded-2xl border border-transparent hover:border-blue-500/30 bg-slate-50 dark:bg-slate-900/40 hover:dark:bg-blue-600/5 transition-all group">
+                {/* FIX: Fondo de icono dinámico */}
                 <div className="w-12 h-12 rounded-xl bg-white dark:bg-[#050a18] flex items-center justify-center border border-slate-200 dark:border-slate-800 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
                   <btn.icon size={22} />
                 </div>
@@ -102,7 +104,7 @@ function NoGroup({ token, onRefresh }) {
             ))}
           </div>
         ) : (
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 bg-transparent">
             <input 
               type="text" 
               className={inputClasses} 
@@ -115,7 +117,7 @@ function NoGroup({ token, onRefresh }) {
               <Button onClick={mode === "create" ? createGroup : joinGroup} disabled={loading} className="flex-1 font-black text-[10px] tracking-widest uppercase py-4 bg-slate-900 dark:bg-blue-600">
                 {loading ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Confirmar Acceso"}
               </Button>
-              <button className="px-6 py-4 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[10px] tracking-widest uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all" onClick={() => { setMode(null); setError(""); }}>
+              <button className="px-6 py-4 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[10px] tracking-widest uppercase text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 transition-all" onClick={() => { setMode(null); setError(""); }}>
                 Regresar
               </button>
             </div>
@@ -131,7 +133,6 @@ export default function Family() {
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [removing, setRemoving] = useState(null);
 
   const fetchGroup = useCallback(async () => {
     if (!token) return;
@@ -170,10 +171,9 @@ export default function Family() {
       }
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-        {/* Lado Izquierdo: Código */}
         <div className="lg:col-span-1">
-          <Card className="p-8 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0d1426] shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><Shield size={80}/></div>
+          <Card className="p-8 border-slate-200 dark:border-slate-800 bg-transparent dark:bg-[#0d1426] shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><Shield size={80} className="dark:text-blue-500" /></div>
             <div className="text-center space-y-6 relative z-10">
               <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">Protocolo de Invitación</p>
               <div className="py-8 bg-slate-50 dark:bg-[#050a18] rounded-[32px] border border-dashed border-slate-200 dark:border-slate-800 group transition-all hover:border-blue-500/50">
@@ -194,9 +194,8 @@ export default function Family() {
           </Card>
         </div>
 
-        {/* Lado Derecho: Tabla */}
         <div className="lg:col-span-2">
-          <Card className="overflow-hidden border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0d1426] shadow-2xl">
+          <Card className="overflow-hidden border-slate-200 dark:border-slate-800 bg-transparent dark:bg-[#0d1426] shadow-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
