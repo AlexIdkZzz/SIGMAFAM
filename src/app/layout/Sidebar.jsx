@@ -12,6 +12,7 @@ const nav = [
   { to: "/app/contacts",  label: "Contactos",    roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/device",    label: "Dispositivo",  roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/audit",     label: "Auditoría",    roles: ["ADMIN"] },
+  { to: "/app/settings",  label: "Ajustes",      roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
 ];
 
 export default function Sidebar({ onNavigate }) {
