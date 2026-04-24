@@ -10,7 +10,10 @@ function BatteryBar({ level }) {
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-12 bg-slate-200 rounded-full overflow-hidden">
-        <div className={h-full ${color} rounded-full} style={{ width: ${level}% }} />
+        <div 
+          className={`h-full ${color} rounded-full`} 
+          style={{ width: `${level}%` }} 
+        />
       </div>
       <span className="text-xs text-slate-500">{level}%</span>
     </div>
@@ -21,7 +24,8 @@ function StatusDot({ lastSeen }) {
   const isOnline = lastSeen && (Date.now() - new Date(lastSeen).getTime()) < 5 * 60 * 1000;
   return (
     <span className="flex items-center gap-1.5">
-      <span className={w-2 h-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-slate-400"}} />
+      {/* CORREGIDO: Se metió la clase dentro de un elemento <span> válido */}
+      <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-slate-400"}`} />
       <span className="text-xs">{isOnline ? "Online" : "Offline"}</span>
     </span>
   );
@@ -45,7 +49,7 @@ export default function AdminDevices() {
   useEffect(() => { load(); }, []);
 
   async function handleUnlink(id) {
-    await apiFetch(/admin/devices/${id}, { method: "DELETE" });
+    await apiFetch(`/admin/devices/${id}`, { method: "DELETE" });
     load(); setModal(null);
   }
 
@@ -53,7 +57,8 @@ export default function AdminDevices() {
 
   return (
     <>
-      <SectionCard title="Dispositivos IoT" count={${devices.length} total · ${online} online}>
+      {/* CORREGIDO: Se agregaron las llaves y backticks para el count */}
+      <SectionCard title="Dispositivos IoT" count={`${devices.length} total · ${online} online`}>
         <div className="overflow-x-auto">
         <table className="w-full min-w-[750px] text-[13px]">
           <TableHead cols={["UID", "Propietario", "Grupo", "Estado", "Última conexión", "Vinculado", "Acciones"]} />
