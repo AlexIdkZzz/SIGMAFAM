@@ -136,7 +136,7 @@ export function ActionBtn({ children, variant = "default", onClick, disabled }) 
 export function Modal({ title, onClose, children, footer }) {
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl border border-slate-200 w-80 overflow-hidden shadow-lg">
+      <div className="bg-white rounded-xl border border-slate-200 w-[calc(100%-2rem)] max-w-sm overflow-hidden shadow-lg">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <span className="text-sm font-medium">{title}</span>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>

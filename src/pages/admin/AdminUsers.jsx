@@ -49,7 +49,8 @@ export default function AdminUsers() {
     <>
       <SectionCard title="Usuarios" count={filtered.length}>
         <SearchBar value={search} onChange={setSearch} placeholder="Buscar por nombre, email o rol..." />
-        <table className="w-full text-[13px]">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[650px] text-[13px]">
           <TableHead cols={["Usuario", "Rol", "Grupo", "Verificado", "Registrado", "Acciones"]} />
           <tbody>
             {loading ? <LoadingRows cols={6} /> :
@@ -88,6 +89,7 @@ export default function AdminUsers() {
             ))}
           </tbody>
         </table>
+        </div>
       </SectionCard>
 
       {modal?.type === "edit" && (

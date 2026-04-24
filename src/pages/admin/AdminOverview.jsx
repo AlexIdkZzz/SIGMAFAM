@@ -31,7 +31,7 @@ export default function AdminOverview() {
 
   return (
     <>
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard label="Usuarios totales"   value={t.users}        sub="Registrados en el sistema" />
         <StatCard label="Grupos familiares"  value={t.groups}       sub="Grupos activos" />
         <StatCard label="Dispositivos"       value={t.devices}      sub="Vinculados" />
@@ -39,7 +39,8 @@ export default function AdminOverview() {
       </div>
 
       <SectionCard title="Actividad reciente">
-        <table className="w-full text-[13px]">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[500px] text-[13px]">
           <thead>
             <tr>
               {["Usuario", "Grupo", "Origen", "Estado", "Fecha"].map((h) => (
@@ -66,6 +67,7 @@ export default function AdminOverview() {
             ))}
           </tbody>
         </table>
+        </div>
       </SectionCard>
     </>
   );

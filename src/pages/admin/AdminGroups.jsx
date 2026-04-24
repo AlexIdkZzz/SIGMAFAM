@@ -30,7 +30,8 @@ export default function AdminGroups() {
   return (
     <>
       <SectionCard title="Grupos familiares" count={groups.length}>
-        <table className="w-full text-[13px]">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[700px] text-[13px]">
           <TableHead cols={["Grupo", "Jefe de familia", "Miembros", "Dispositivos", "Alertas", "Creado", "Acciones"]} />
           <tbody>
             {loading ? <LoadingRows cols={7} /> :
@@ -56,6 +57,7 @@ export default function AdminGroups() {
             ))}
           </tbody>
         </table>
+        </div>
       </SectionCard>
 
       {modal?.type === "members" && (
