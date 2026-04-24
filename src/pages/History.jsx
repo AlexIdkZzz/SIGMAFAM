@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Drawer from "../alerts/_drawer";
+import Drawer from "./_drawer";
 import { useAlerts } from "./AlertsContext";
 import MiniMap from "../maps/MiniMap";
 import {
