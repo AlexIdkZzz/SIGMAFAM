@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Drawer from "./_drawer";
 import { useAlerts } from "../app/alerts/AlertsContext";
-import MiniMap from "../maps/MiniMap";
+import MiniMap from "../app/maps/MiniMap";
 import {
   Clock, Search, Filter, Eye, ChevronLeft, ChevronRight, 
   Download, Calendar, Cpu, Smartphone, AlertTriangle, Navigation, Battery
