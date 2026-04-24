@@ -6,7 +6,7 @@ import {
 import { MapContainer, TileLayer, Circle, Tooltip as MapTooltip } from "react-leaflet";
 import { 
   TrendingUp, Activity, CheckCircle2, Clock, 
-  AlertCircle, BarChart3, Map as MapIcon
+  BarChart3, Map as MapIcon
 } from "lucide-react";
 import { PageShell, Card } from "./_ui";
 import { useAuth } from "../app/auth/AuthContext";
@@ -22,7 +22,8 @@ const STATUS_THEME = {
 
 function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
   return (
-    <div className={`relative overflow-hidden bg-white dark:bg-[#0d1426] border border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 dark:shadow-none group transition-all duration-300 hover:-translate-y-1`}>
+    // CAMBIO: dark:bg-[#050a18] y bordes slate-900 para que casi no se vean
+    <div className={`relative overflow-hidden bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-900 rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 dark:shadow-none group transition-all duration-300 hover:-translate-y-1`}>
       <div className={`absolute top-0 left-0 w-1.5 h-full ${borderSide}`} />
       <div className="flex justify-between items-start">
         <div>
@@ -47,8 +48,6 @@ export default function Stats() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
-  // Forzamos el check del tema
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
 
   useEffect(() => {
@@ -80,7 +79,7 @@ export default function Stats() {
   return (
     <PageShell title="Dashboard Operativo" subtitle="Análisis predictivo e histórico.">
       
-      {/* 1. Métricas con BG corregido */}
+      {/* 1. Métricas con Black Background */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard label="Total Histórico" value={data.total} sub="+12%" icon={BarChart3} colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" borderSide="bg-indigo-500" />
         <MetricCard label="Activos" value={(statusMap.ACTIVE ?? 0) + (statusMap.RECEIVED ?? 0)} sub="Prioridad" icon={Activity} colorClass="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400" borderSide="bg-red-500" />
@@ -89,22 +88,22 @@ export default function Stats() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* 2. Gráfico de Barras con colores dinámicos */}
+        {/* 2. Tendencia de Incidentes */}
         <div className="lg:col-span-2">
-          <Card title="Tendencia de Incidentes" icon={TrendingUp} className="dark:bg-[#0d1426] dark:border-slate-800">
+          <Card title="Tendencia de Incidentes" icon={TrendingUp} className="dark:bg-[#050a18] dark:border-slate-900">
             <div className="h-[350px] mt-6">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="8 8" vertical={false} stroke={isDark ? "#1e293b" : "#cbd5e1"} strokeOpacity={0.5} />
+                  <CartesianGrid strokeDasharray="8 8" vertical={false} stroke={isDark ? "#1e293b" : "#cbd5e1"} strokeOpacity={0.3} />
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: isDark ? '#475569' : '#94a3b8' }} dy={10} />
                   <YAxis hide />
                   <Tooltip 
-                    cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}
-                    contentStyle={{ borderRadius: '20px', border: 'none', backgroundColor: isDark ? '#1e293b' : '#0f172a', color: '#fff' }}
+                    cursor={{ fill: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}
+                    contentStyle={{ borderRadius: '20px', border: 'none', backgroundColor: isDark ? '#0f172a' : '#0f172a', color: '#fff' }}
                   />
                   <Bar dataKey="Alertas" radius={[10, 10, 10, 10]} barSize={32}>
                     {barData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === barData.length - 1 ? '#3b82f6' : (isDark ? '#334155' : '#94a3b8')} />
+                      <Cell key={`cell-${index}`} fill={index === barData.length - 1 ? '#3b82f6' : (isDark ? '#1e293b' : '#94a3b8')} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -114,7 +113,7 @@ export default function Stats() {
         </div>
 
         {/* 3. Estado del Sistema */}
-        <Card title="Estado del Sistema" icon={Activity} className="dark:bg-[#0d1426] dark:border-slate-800">
+        <Card title="Estado del Sistema" icon={Activity} className="dark:bg-[#050a18] dark:border-slate-900">
           <div className="space-y-6 mt-6">
             {(data.byStatus ?? []).map((s) => {
               const theme = STATUS_THEME[s.status] || { color: "#64748b", text: "text-slate-500" };
@@ -122,10 +121,10 @@ export default function Stats() {
               return (
                 <div key={s.status}>
                   <div className="flex justify-between items-end mb-2">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{s.status}</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">{s.status}</p>
                     <p className={`text-xs font-black ${theme.text}`}>{pct}%</p>
                   </div>
-                  <div className="h-2 bg-slate-50 dark:bg-slate-800/50 rounded-full overflow-hidden">
+                  <div className="h-2 bg-slate-50 dark:bg-slate-900/50 rounded-full overflow-hidden border dark:border-slate-800/50">
                     <div className="h-full transition-all duration-1000" style={{ width: `${pct}%`, backgroundColor: theme.color }} />
                   </div>
                 </div>
@@ -135,22 +134,32 @@ export default function Stats() {
         </Card>
       </div>
 
-      {/* 4. Mapa Oscuro Real */}
-      <Card title="Zonificación de Riesgo" icon={MapIcon} className="dark:bg-[#0d1426] dark:border-slate-800">
+      {/* 4. Zonificación y Análisis */}
+      <Card title="Zonificación de Riesgo" icon={MapIcon} className="dark:bg-[#050a18] dark:border-slate-900">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mt-6">
           <div className="lg:col-span-3">
-            <div className="h-[450px] rounded-[2.5rem] overflow-hidden border-8 border-slate-50 dark:border-slate-800 relative bg-slate-100 dark:bg-[#050a18]">
+            <div className="h-[450px] rounded-[2.5rem] overflow-hidden border-8 border-slate-50 dark:border-slate-900 relative bg-slate-100 dark:bg-[#050a18]">
               <div className="h-full w-full dark-map-filter transition-all duration-500">
                 <MapContainer center={[20.6736, -103.4053]} zoom={13} className="h-full w-full">
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {/* ... círculos ... */}
                 </MapContainer>
               </div>
             </div>
           </div>
-          <div className="p-6 bg-slate-900 dark:bg-[#161f35] rounded-[2rem] text-white">
-             <h4 className="text-xs font-black uppercase text-slate-500 mb-4">Análisis</h4>
-             <p className="text-sm opacity-80">Hotspots detectados: <span className="text-red-400 font-black">{data.hotspots?.length}</span></p>
+          {/* Panel de Análisis Lateral */}
+          <div className="p-6 bg-slate-900 dark:bg-[#0d1426] border dark:border-slate-800 rounded-[2rem] text-white">
+             <h4 className="text-[10px] font-black uppercase text-slate-500 mb-4 tracking-[0.2em]">Análisis</h4>
+             <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Hotspots</p>
+                  <p className="text-2xl font-black text-red-400">{data.hotspots?.length || 0}</p>
+                </div>
+                <div className="pt-4 border-t border-slate-800">
+                  <p className="text-sm opacity-80 leading-relaxed italic text-slate-300">
+                    "Se observa un incremento de actividad en el sector noroccidente durante las últimas 24 horas."
+                  </p>
+                </div>
+             </div>
           </div>
         </div>
       </Card>

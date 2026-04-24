@@ -1,15 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react"; // Añadimos hooks para el tema
 import { MapContainer, TileLayer, Marker, ZoomControl } from "react-leaflet";
 import {
-  Map as MapIcon,
-  RefreshCw,
-  Navigation,
-  Battery,
-  User,
-  Radio,
-  MapPin,
-  AlertTriangle,
-  Info
+  Map as MapIcon, RefreshCw, Navigation, User, Radio, AlertTriangle, Info
 } from "lucide-react";
 import { PageShell, Card, Button } from "./_ui";
 import { useAlerts } from "../app/alerts/AlertsContext";
@@ -36,6 +28,17 @@ const FALLBACK_CENTER = [20.6736, -103.4053];
 
 export default function MapLive() {
   const { alerts, selected, selectAlert, loading, refreshActive } = useAlerts();
+  
+  // Lógica para detectar el modo oscuro (igual que en Stats.jsx)
+  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   const center = selected?.lastLocation
     ? [selected.lastLocation.lat, selected.lastLocation.lng]
@@ -50,17 +53,16 @@ export default function MapLive() {
           variant="outline"
           onClick={refreshActive}
           disabled={loading}
-          className="h-9 px-3 text-xs font-black dark:border-slate-800 dark:bg-[#0a0f1e] dark:text-slate-400"
+          className="h-9 px-3 text-xs font-black dark:border-slate-800 dark:bg-[#050a18] dark:text-slate-400"
         >
           <RefreshCw size={14} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
           {loading ? "SINC..." : "ACTUALIZAR"}
         </Button>
       }
     >
-      {/* Contenedor principal ajustado para evitar scroll vertical */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[calc(100vh-180px)] min-h-[500px]">
         
-        {/* PANEL IZQUIERDO */}
+        {/* PANEL IZQUIERDO: Fondo Negro Puro en Dark Mode */}
         <div className="lg:col-span-1 flex flex-col gap-3 min-h-0">
           <div className="flex items-center justify-between px-1 shrink-0">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Alertas Activas</h3>
@@ -69,7 +71,7 @@ export default function MapLive() {
           
           <div className="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
             {alerts.length === 0 ? (
-              <div className="bg-slate-50/50 dark:bg-[#0a0f1e]/50 border border-slate-100 dark:border-slate-800/50 rounded-2xl p-6 text-center">
+              <div className="bg-slate-50/50 dark:bg-[#050a18] border border-slate-100 dark:border-slate-800 rounded-2xl p-6 text-center">
                 <Radio size={20} className="mx-auto mb-2 text-slate-300 dark:text-slate-700" />
                 <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest">Sin actividad</p>
               </div>
@@ -83,7 +85,7 @@ export default function MapLive() {
                     className={`w-full text-left p-3.5 rounded-2xl border transition-all duration-200 group relative overflow-hidden ${
                       isSelected
                         ? "bg-slate-900 dark:bg-blue-600 border-slate-900 dark:border-blue-500 shadow-lg shadow-blue-900/20"
-                        : "bg-white dark:bg-[#0d1426] border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                        : "bg-white dark:bg-[#050a18] border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                     }`}
                   >
                     <div className="flex justify-between items-center mb-2 relative z-10">
@@ -108,31 +110,34 @@ export default function MapLive() {
           </div>
         </div>
 
-        {/* MAPA */}
+        {/* CONTENEDOR DEL MAPA: Con el filtro dinámico */}
         <div className="lg:col-span-3 flex flex-col min-h-0">
-          <div className="flex-1 bg-slate-100 dark:bg-[#0a0f1e] border border-slate-200 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-inner relative group">
-            <MapContainer
-              center={center}
-              zoom={15}
-              className="h-full w-full z-10 dark-map-container"
-              zoomControl={false}
-            >
-              {/* Filtro CSS aplicado al TileLayer mediante una clase en el MapContainer */}
-              <TileLayer
-                attribution="&copy; OpenStreetMap"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <ZoomControl position="bottomright" />
-              {selected?.lastLocation && (
-                <Marker position={[selected.lastLocation.lat, selected.lastLocation.lng]} />
-              )}
-            </MapContainer>
+          <div className="flex-1 bg-slate-100 dark:bg-[#050a18] border border-slate-200 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-inner relative group">
+            
+            {/* La clase 'dark-map-filter' se activa solo cuando el body tiene la clase .dark */}
+            <div className="h-full w-full dark-map-filter transition-all duration-500">
+              <MapContainer
+                center={center}
+                zoom={15}
+                className="h-full w-full z-10"
+                zoomControl={false}
+              >
+                <TileLayer
+                  attribution="&copy; OpenStreetMap"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <ZoomControl position="bottomright" />
+                {selected?.lastLocation && (
+                  <Marker position={[selected.lastLocation.lat, selected.lastLocation.lng]} />
+                )}
+              </MapContainer>
+            </div>
 
-            {/* OVERLAY INFO: Ajustado para no tapar mucho espacio */}
+            {/* OVERLAY INFO: Fondo Negro y Tipografía Blanca */}
             {selected && (
               <div className="absolute top-4 left-4 z-[20] w-64 animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-none">
-                <div className="bg-white/90 dark:bg-[#0d1426]/90 backdrop-blur-xl border border-white dark:border-white/5 p-4 rounded-[1.5rem] shadow-2xl pointer-events-auto">
-                  <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100 dark:border-white/5">
+                <div className="bg-white/90 dark:bg-[#050a18]/95 backdrop-blur-xl border border-white dark:border-slate-800 p-4 rounded-[1.5rem] shadow-2xl pointer-events-auto">
+                  <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="w-9 h-9 bg-slate-900 dark:bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
                       <User className="text-white" size={16} />
                     </div>
@@ -143,11 +148,11 @@ export default function MapLive() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className="bg-slate-50 dark:bg-[#161f35] rounded-xl p-2 text-center border border-slate-100 dark:border-white/5">
+                    <div className="bg-slate-50 dark:bg-[#161f35] rounded-xl p-2 text-center border border-slate-100 dark:border-slate-800">
                       <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-tighter">Batería</p>
                       <p className="text-xs font-black text-slate-900 dark:text-blue-400">{selected.battery ?? '—'}%</p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-[#161f35] rounded-xl p-2 text-center border border-slate-100 dark:border-white/5">
+                    <div className="bg-slate-50 dark:bg-[#161f35] rounded-xl p-2 text-center border border-slate-100 dark:border-slate-800">
                       <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-tighter">Señal</p>
                       <p className="text-xs font-black text-slate-900 dark:text-emerald-500 text-[10px]">LIVE</p>
                     </div>
@@ -183,13 +188,14 @@ export default function MapLive() {
         </div>
       </div>
 
-      {/* CSS INYECTADO PARA EL MAPA OSCURO */}
       <style>{`
-        .dark-map-container .leaflet-tile-pane {
+        /* Aplicamos el filtro de inversión de color al mapa SOLO en modo oscuro */
+        .dark .dark-map-filter .leaflet-tile-pane {
           filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
         }
-        .dark-map-container .leaflet-container {
-          background: #0a0f1e;
+        /* Color de fondo del contenedor del mapa en modo oscuro */
+        .dark .leaflet-container {
+          background: #050a18 !important;
         }
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
