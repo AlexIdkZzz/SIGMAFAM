@@ -1,23 +1,31 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { 
-  LayoutDashboard, AlertTriangle, Map, Clock, 
-  ShoppingCart, BarChart2, Users, BookOpen, 
-  Cpu, ClipboardList, Settings
+import {
+  LayoutDashboard, AlertTriangle, Map, Clock,
+  BarChart2, Users, BookOpen,
+  Cpu, ClipboardList, Settings, ShieldAlert
 } from "lucide-react";
 
 const nav = [
-  { to: "/app/dashboard", label: "Dashboard",   icon: LayoutDashboard, roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
-  { to: "/app/alerts",    label: "Alertas",      icon: AlertTriangle,   roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
-  { to: "/app/map",       label: "Mapa en vivo", icon: Map,             roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
-  { to: "/app/history",   label: "Historial",    icon: Clock,           roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
-  { to: "/app/stats",     label: "Estadísticas", icon: BarChart2,       roles: ["ADMIN","JEFE_FAMILIA"] },
-  { to: "/app/family",    label: "Familia",      icon: Users,           roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
-  { to: "/app/contacts",  label: "Contactos",    icon: BookOpen,        roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
-  { to: "/app/device",    label: "Dispositivo",  icon: Cpu,             roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
-  { to: "/app/audit",     label: "Auditoría",    icon: ClipboardList,   roles: ["ADMIN"] },
+  { to: "/app/dashboard", label: "Dashboard",    icon: LayoutDashboard, roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
+  { to: "/app/alerts",    label: "Alertas",       icon: AlertTriangle,   roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
+  { to: "/app/map",       label: "Mapa en vivo",  icon: Map,             roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
+  { to: "/app/history",   label: "Historial",     icon: Clock,           roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
+  { to: "/app/stats",     label: "Estadísticas",  icon: BarChart2,       roles: ["ADMIN","JEFE_FAMILIA"] },
+  { to: "/app/family",    label: "Familia",       icon: Users,           roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
+  { to: "/app/contacts",  label: "Contactos",     icon: BookOpen,        roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
+  { to: "/app/device",    label: "Dispositivo",   icon: Cpu,             roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
+  { to: "/app/audit",     label: "Auditoría",     icon: ClipboardList,   roles: ["ADMIN"] },
+  { to: "/app/settings",  label: "Configuración", icon: Settings,        roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
 ];
+
+const navItemClass = ({ isActive }) =>
+  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+    isActive
+      ? "bg-slate-900 dark:bg-sky-500/15 text-white dark:text-sky-400 font-bold shadow-md dark:shadow-none"
+      : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
+  }`;
 
 export default function Sidebar({ closeMenu }) {
   const { user } = useAuth();
@@ -32,15 +40,7 @@ export default function Sidebar({ closeMenu }) {
         {nav
           .filter((i) => !role || i.roles.includes(role))
           .map((i) => (
-            <NavLink key={i.to} to={i.to} onClick={closeMenu}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  isActive 
-                    ? "bg-slate-900 dark:bg-sky-500/15 text-white dark:text-sky-400 font-bold shadow-md dark:shadow-none" 
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
-                }`
-              }
-            >
+            <NavLink key={i.to} to={i.to} onClick={closeMenu} className={navItemClass}>
               <i.icon size={18} />
               {i.label}
             </NavLink>
@@ -51,7 +51,7 @@ export default function Sidebar({ closeMenu }) {
             onClick={() => { closeMenu?.(); navigate("/admin"); }}
             className="flex items-center gap-3 mt-4 px-3 py-2.5 rounded-xl text-sm font-bold transition-all text-left bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/25 border border-red-100 dark:border-red-500/20"
           >
-            <Settings size={18} />
+            <ShieldAlert size={18} />
             Panel Admin
           </button>
         )}

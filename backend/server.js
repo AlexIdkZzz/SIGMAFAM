@@ -1534,6 +1534,48 @@ app.get("/api/v1/admin/alerts", authRequired, adminRequired, async (req, res) =>
   }
 });
 
+/* ══════════════════════ USER / CHANGE PASSWORD ══════════════════════ */
+
+/**
+ * PUT /api/v1/user/change-password
+ * Cambia la contraseña del usuario autenticado.
+ * Body: { currentPassword, newPassword }
+ */
+app.put("/api/v1/user/change-password", authRequired, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    if (newPassword.length < 6)
+      return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
+
+    const [[user]] = await pool.execute(
+      "SELECT id, password_hash FROM users WHERE id = :id",
+      { id: req.user.id }
+    );
+
+    if (!user)
+      return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    const match = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!match)
+      return res.status(401).json({ error: "WRONG_CURRENT_PASSWORD" });
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await pool.execute(
+      "UPDATE users SET password_hash = :hash WHERE id = :id",
+      { hash: newHash, id: req.user.id }
+    );
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[User/ChangePassword]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 /* ═══════════════════════════ START ═══════════════════════════ */
 
 const PORT = process.env.PORT || 4000;

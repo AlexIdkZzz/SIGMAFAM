@@ -18,6 +18,7 @@ import Contacts from "../pages/Contacts";
 import Device from "../pages/Device";
 import Audit from "../pages/Audit";
 import AdminPanel from "../pages/AdminPanel";
+import Settings from "../pages/Settings";
 
 export default function AppRouter() {
   return (
@@ -69,6 +70,7 @@ export default function AppRouter() {
         <Route path="audit"
           element={<RequireAuth allowRoles={["ADMIN"]}><Audit /></RequireAuth>}
         />
+        <Route path="settings" element={<Settings />} />
 
         <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
       </Route>
