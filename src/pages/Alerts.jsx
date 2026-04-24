@@ -44,14 +44,15 @@ export default function Alerts() {
   return (
     <PageShell
       title="Gestión de Alertas"
-      subtitle={`Monitoreo en tiempo real · Activas: ${activeCount}`}
+      // Se eliminó la clase opacity-40 y se cambió el color de gris a slate-500/slate-400 para legibilidad
+      subtitle={<span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">Monitoreo en tiempo real · Activas: {activeCount}</span>}
       right={
         <div className="flex gap-3">
           <Button 
             variant="outline" 
             onClick={refreshActive} 
             disabled={loading} 
-            className="dark:bg-[#1e293b] dark:text-white dark:border-slate-700 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all"
+            className="bg-white dark:bg-[#1e293b] text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-sm"
           >
             <RefreshCw size={14} className={loading ? "animate-spin mr-2" : "mr-2"} />
             {loading ? "Sincronizando" : "Actualizar"}
@@ -59,7 +60,7 @@ export default function Alerts() {
           <Button 
             variant="outline" 
             onClick={() => setDrawerOpen((v) => !v)} 
-            className="dark:bg-[#1e293b] dark:text-white dark:border-slate-700 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all"
+            className="bg-white dark:bg-[#1e293b] text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-sm"
           >
             <LayoutPanelLeft size={14} className="mr-2" />
             {drawerOpen ? "Cerrar Panel" : "Ver Detalle"}
@@ -80,9 +81,10 @@ export default function Alerts() {
         </div>
       )}
 
-      <Card className="dark:bg-[#0d1426] dark:border-slate-800 overflow-hidden shadow-2xl">
+      {/* Se forzó bg-transparent y dark:bg-[#0d1426] para eliminar el recuadro blanco */}
+      <Card className="bg-transparent dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse bg-transparent">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/30 text-left">
                 <th className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">ID</th>
@@ -97,16 +99,16 @@ export default function Alerts() {
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800/30">
               {loading && alerts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-32 text-center bg-white dark:bg-[#0d1426]">
+                  <td colSpan={6} className="py-32 text-center bg-transparent">
                     <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent" />
                   </td>
                 </tr>
               ) : alerts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-32 text-center bg-white dark:bg-[#0d1426]">
+                  <td colSpan={6} className="py-32 text-center bg-transparent">
                     <div className="flex flex-col items-center gap-4 opacity-40">
-                      <RefreshCw size={40} className="text-slate-300" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Sin registros activos</p>
+                      <RefreshCw size={40} className="text-slate-300 dark:text-slate-700" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Sin registros activos</p>
                     </div>
                   </td>
                 </tr>
@@ -126,11 +128,11 @@ export default function Alerts() {
                       <td className="py-6 px-6 font-black text-slate-900 dark:text-white text-sm">#{a.id}</td>
                       <td className="py-6 px-4">
                         <div className="flex flex-col">
-                           <span className="font-black text-slate-700 dark:text-slate-200 uppercase text-xs tracking-tight">{a.user}</span>
-                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Verified User</span>
+                           <span className="font-black text-slate-700 dark:text-slate-200 uppercase text-[11px] tracking-tight">{a.user}</span>
+                           <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Verified User</span>
                         </div>
                       </td>
-                      <td className="py-6 px-4 text-slate-500 dark:text-slate-400 text-[11px] font-black uppercase">{fmtTime(a.createdAt)}</td>
+                      <td className="py-6 px-4 text-slate-500 dark:text-slate-400 text-[11px] font-black uppercase italic">{fmtTime(a.createdAt)}</td>
                       <td className="py-6 px-4"><SourcePill source={a.source} /></td>
                       <td className="py-6 px-4"><StatusPill status={a.status} /></td>
                       <td className="py-6 px-6">
