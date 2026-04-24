@@ -6,8 +6,6 @@ import {
   AlertCircle, Loader2, Sun, Moon, Eye, EyeOff
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
-
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -24,31 +22,24 @@ const Login = () => {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const userData = await login(email, password);
 
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error("El servidor no respondió correctamente. Verifica que el backend esté activo.");
+      if (userData?.role === "ADMIN") {
+        navigate("/admin");
+      } else {
+        navigate("/app/dashboard");
       }
-
-      if (!res.ok) {
-        if (data.error === "EMAIL_NOT_VERIFIED") {
-          navigate("/verify", { state: { email } });
-          return;
-        }
-        throw new Error(data.error || "Error al iniciar sesión");
-      }
-
-      login(data.user, data.access_token);
-      navigate("/app/dashboard");
     } catch (err) {
-      setError(err.message);
+      const msg = err.message ?? "";
+      if (msg === "EMAIL_NOT_VERIFIED") {
+        navigate("/verify", { state: { email } });
+        return;
+      }
+      if (msg === "INVALID_CREDENTIALS") {
+        setError("Correo o contraseña incorrectos.");
+      } else {
+        setError(msg || "No se pudo conectar con el servidor.");
+      }
     } finally {
       setLoading(false);
     }
