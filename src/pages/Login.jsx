@@ -6,6 +6,8 @@ import {
   AlertCircle, Loader2, Sun, Moon, Eye, EyeOff
 } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
+
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -22,7 +24,7 @@ const Login = () => {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1"}/auth/login`, {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -42,8 +44,9 @@ const Login = () => {
         }
         throw new Error(data.error || "Error al iniciar sesión");
       }
+
       login(data.user, data.access_token);
-      navigate("/dashboard");
+      navigate("/app/dashboard");
     } catch (err) {
       setError(err.message);
     } finally {
