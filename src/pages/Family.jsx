@@ -15,7 +15,7 @@ function RolePill({ role }) {
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
       isJefe 
         ? "bg-blue-500/10 text-blue-500 border-blue-500/20" 
-        : "bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+        : "bg-slate-800/30 text-slate-400 border-slate-800"
     }`}>
       {isJefe && <Shield size={10} />} {isJefe ? "Jefe de familia" : "Miembro"}
     </span>
@@ -35,7 +35,8 @@ function NoGroup({ token, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const inputClasses = "w-full px-5 py-4 rounded-2xl border transition-all outline-none bg-slate-50 dark:bg-[#0a0f1e] border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-sm font-black uppercase placeholder:text-slate-400 dark:placeholder:text-slate-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500";
+  // Estilo de inputs corregido para ser totalmente oscuro
+  const inputClasses = "w-full px-5 py-4 rounded-2xl border transition-all outline-none bg-[#050a18] border-slate-800 text-white text-sm font-black uppercase placeholder:text-slate-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500";
 
   async function createGroup() {
     if (!name.trim()) { setError("ESCRIBE UN NOMBRE PARA TU GRUPO."); return; }
@@ -74,31 +75,30 @@ function NoGroup({ token, onRefresh }) {
   return (
     <div className="max-w-md mx-auto mt-12 px-4 animate-in fade-in zoom-in duration-500">
       <div className="text-center mb-10">
-        <div className="w-20 h-20 rounded-[28px] bg-slate-900 dark:bg-blue-600 flex items-center justify-center mx-auto mb-6 shadow-2xl border border-white/10">
+        <div className="w-20 h-20 rounded-[28px] bg-blue-600 flex items-center justify-center mx-auto mb-6 shadow-2xl border border-white/10">
           <Users className="text-white" size={32} />
         </div>
-        <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Tu Círculo Familiar</h2>
-        <p className="text-slate-500 dark:text-slate-500 text-[10px] font-black uppercase tracking-[0.25em] mt-2">
+        <h2 className="text-2xl font-black text-white tracking-tighter uppercase italic">Tu Círculo Familiar</h2>
+        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.25em] mt-2">
           PROTECCIÓN COLECTIVA EN TIEMPO REAL
         </p>
       </div>
 
-      {/* FIX: Se eliminó bg-white y se puso bg-transparent para que mande el dark:bg */}
-      <Card className="p-2 border-slate-200 dark:border-slate-800 bg-transparent dark:bg-[#0d1426] shadow-2xl">
+      {/* CARD: Se quitó bg-white y se puso fondo ultra oscuro */}
+      <Card className="p-2 border-slate-800 bg-[#0d1426] shadow-2xl">
         {!mode ? (
           <div className="space-y-2">
             {[
               { id: 'create', icon: UserPlus, label: 'Serás el administrador', title: 'Crear nuevo grupo' },
               { id: 'join', icon: Shield, label: 'Usa una invitación', title: 'Unirme con código' }
             ].map((btn) => (
-              <button key={btn.id} onClick={() => setMode(btn.id)} className="w-full flex items-center gap-5 p-5 rounded-2xl border border-transparent hover:border-blue-500/30 bg-slate-50 dark:bg-slate-900/40 hover:dark:bg-blue-600/5 transition-all group">
-                {/* FIX: Fondo de icono dinámico */}
-                <div className="w-12 h-12 rounded-xl bg-white dark:bg-[#050a18] flex items-center justify-center border border-slate-200 dark:border-slate-800 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
+              <button key={btn.id} onClick={() => setMode(btn.id)} className="w-full flex items-center gap-5 p-5 rounded-2xl border border-transparent hover:border-blue-500/30 bg-slate-900/40 hover:bg-blue-600/5 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-[#050a18] flex items-center justify-center border border-slate-800 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
                   <btn.icon size={22} />
                 </div>
                 <div className="text-left">
-                  <p className="font-black text-slate-900 dark:text-white text-[11px] uppercase tracking-widest">{btn.title}</p>
-                  <p className="text-[9px] font-bold text-slate-500 dark:text-slate-500 uppercase mt-0.5">{btn.label}</p>
+                  <p className="font-black text-white text-[11px] uppercase tracking-widest">{btn.title}</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">{btn.label}</p>
                 </div>
               </button>
             ))}
@@ -114,10 +114,10 @@ function NoGroup({ token, onRefresh }) {
             />
             {error && <div className="flex items-center gap-2 text-red-500 px-2 italic"><AlertCircle size={12}/><p className="text-[10px] font-black uppercase">{error}</p></div>}
             <div className="flex gap-2">
-              <Button onClick={mode === "create" ? createGroup : joinGroup} disabled={loading} className="flex-1 font-black text-[10px] tracking-widest uppercase py-4 bg-slate-900 dark:bg-blue-600">
+              <Button onClick={mode === "create" ? createGroup : joinGroup} disabled={loading} className="flex-1 font-black text-[10px] tracking-widest uppercase py-4 bg-blue-600">
                 {loading ? <Loader2 className="animate-spin mx-auto" size={16}/> : "Confirmar Acceso"}
               </Button>
-              <button className="px-6 py-4 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[10px] tracking-widest uppercase text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 transition-all" onClick={() => { setMode(null); setError(""); }}>
+              <button className="px-6 py-4 border border-slate-800 rounded-2xl font-black text-[10px] tracking-widest uppercase text-slate-400 hover:bg-white/5 transition-all" onClick={() => { setMode(null); setError(""); }}>
                 Regresar
               </button>
             </div>
@@ -165,19 +165,19 @@ export default function Family() {
       title={group.name}
       subtitle={`MIEMBROS ACTIVOS: ${group.members.length} / 6`}
       right={
-        <button onClick={fetchGroup} className="p-3 bg-white dark:bg-[#0d1426] hover:bg-slate-50 dark:hover:bg-blue-600/10 rounded-2xl transition-all text-blue-600 border border-slate-200 dark:border-slate-800 active:scale-95 shadow-sm">
+        <button onClick={fetchGroup} className="p-3 bg-[#0d1426] hover:bg-blue-600/10 rounded-2xl transition-all text-blue-600 border border-slate-800 active:scale-95 shadow-sm">
           <RefreshCw size={18} />
         </button>
       }
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="lg:col-span-1">
-          <Card className="p-8 border-slate-200 dark:border-slate-800 bg-transparent dark:bg-[#0d1426] shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><Shield size={80} className="dark:text-blue-500" /></div>
+          <Card className="p-8 border-slate-800 bg-[#0d1426] shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10"><Shield size={80} className="text-blue-500" /></div>
             <div className="text-center space-y-6 relative z-10">
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">Protocolo de Invitación</p>
-              <div className="py-8 bg-slate-50 dark:bg-[#050a18] rounded-[32px] border border-dashed border-slate-200 dark:border-slate-800 group transition-all hover:border-blue-500/50">
-                <span className="font-mono text-4xl font-black tracking-[0.2em] text-slate-900 dark:text-white">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Protocolo de Invitación</p>
+              <div className="py-8 bg-[#050a18] rounded-[32px] border border-dashed border-slate-800 group transition-all hover:border-blue-500/50">
+                <span className="font-mono text-4xl font-black tracking-[0.2em] text-white">
                   {group.invite_code || "--------"}
                 </span>
               </div>
@@ -186,7 +186,7 @@ export default function Family() {
                   await navigator.clipboard.writeText(group.invite_code);
                   setCopied(true); setTimeout(() => setCopied(false), 2000);
                 }} 
-                className={`w-full py-5 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-xl ${copied ? 'bg-emerald-600' : 'bg-slate-900 dark:bg-blue-600 shadow-blue-500/20'}`}
+                className={`w-full py-5 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-xl ${copied ? 'bg-emerald-600' : 'bg-blue-600 shadow-blue-500/20'}`}
               >
                 {copied ? "Enlace Copiado" : "Copiar Acceso"}
               </Button>
@@ -195,34 +195,34 @@ export default function Family() {
         </div>
 
         <div className="lg:col-span-2">
-          <Card className="overflow-hidden border-slate-200 dark:border-slate-800 bg-transparent dark:bg-[#0d1426] shadow-2xl">
+          <Card className="overflow-hidden border-slate-800 bg-[#0d1426] shadow-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-[#050a18] border-b border-slate-100 dark:border-slate-800">
-                    <th className="p-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest italic">Identidad Digital</th>
-                    <th className="p-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest hidden sm:table-cell">Rango / Alta</th>
+                  <tr className="bg-[#050a18] border-b border-slate-800">
+                    <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Identidad Digital</th>
+                    <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest hidden sm:table-cell">Rango / Alta</th>
                     <th className="p-6"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
+                <tbody className="divide-y divide-slate-800/40">
                   {group.members.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.01] transition-colors">
+                    <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="p-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-11 h-11 rounded-xl bg-slate-900 dark:bg-blue-600 font-black text-white flex items-center justify-center shadow-lg border border-white/10 shrink-0 italic text-lg">
+                          <div className="w-11 h-11 rounded-xl bg-blue-600 font-black text-white flex items-center justify-center shadow-lg border border-white/10 shrink-0 italic text-lg">
                             {m.fullName?.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-black text-slate-900 dark:text-white uppercase text-[12px] tracking-tight">{m.fullName}</p>
-                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">{m.email}</p>
+                            <p className="font-black text-white uppercase text-[12px] tracking-tight">{m.fullName}</p>
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">{m.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="p-6 hidden sm:table-cell">
                         <div className="flex flex-col gap-1.5">
                           <RolePill role={m.role} />
-                          <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5 ml-1">
+                          <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 ml-1">
                             <Calendar size={10} className="text-blue-500" /> {formatDate(m.joinedAt)}
                           </p>
                         </div>
@@ -231,7 +231,7 @@ export default function Family() {
                         {isJefe && m.role !== "JEFE_FAMILIA" && (
                           <button 
                             onClick={() => { if(confirm("¿ELIMINAR MIEMBRO?")) console.log("delete"); }}
-                            className="p-3 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                            className="p-3 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
                           >
                             <UserMinus size={18} />
                           </button>

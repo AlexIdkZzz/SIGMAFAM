@@ -1,17 +1,31 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { PageShell, Card, Button, Pill } from "./_ui";
 import { useAuth } from "../app/auth/AuthContext";
+import {
+  RefreshCw, Download, X, ShieldCheck,
+  Loader2, AlertCircle, FileText, ChevronLeft, ChevronRight,
+} from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
 const EVENT_LABELS = {
-  LOGIN:               { label: "Login",             color: "blue"   },
-  USER_REGISTER:       { label: "Registro",          color: "green"  },
-  USER_VERIFIED:       { label: "Verificación",      color: "green"  },
-  ALERT_STATUS_CHANGE: { label: "Cambio de alerta",  color: "yellow" },
-  IOT_ALERT:           { label: "Alerta IoT",        color: "red"    },
-  DEVICE_REGISTER:     { label: "Dispositivo",       color: "slate"  },
+  LOGIN:               { label: "Login",            color: "blue"   },
+  USER_REGISTER:       { label: "Registro",         color: "green"  },
+  USER_VERIFIED:       { label: "Verificación",     color: "green"  },
+  ALERT_STATUS_CHANGE: { label: "Cambio de alerta", color: "yellow" },
+  IOT_ALERT:           { label: "Alerta IoT",       color: "red"    },
+  DEVICE_REGISTER:     { label: "Dispositivo",      color: "slate"  },
 };
+
+const FILTERS = [
+  { key: "",                    label: "Todos"          },
+  { key: "LOGIN",               label: "Logins"         },
+  { key: "USER_REGISTER",       label: "Registros"      },
+  { key: "USER_VERIFIED",       label: "Verificaciones" },
+  { key: "ALERT_STATUS_CHANGE", label: "Alertas"        },
+  { key: "IOT_ALERT",           label: "IoT"            },
+  { key: "DEVICE_REGISTER",     label: "Dispositivos"   },
+];
 
 function EventPill({ type }) {
   const cfg = EVENT_LABELS[type] ?? { label: type, color: "slate" };
@@ -25,7 +39,7 @@ function formatDate(dt) {
   });
 }
 
-// ── Generar XML ──────────────────────────────────────────────────
+// ── Generar XML ──────────────────────────────────────────────────────
 function generateAuditXML(logs) {
   const escape = (str) =>
     String(str ?? "")
@@ -67,7 +81,7 @@ function generateAuditXML(logs) {
   return lines.join("\n");
 }
 
-// ── Modal XML ───────────────────────────────────────────────────
+// ── Modal XML ────────────────────────────────────────────────────────
 function XMLModal({ xml, onClose }) {
   function download() {
     const blob = new Blob([xml], { type: "application/xml" });
@@ -81,29 +95,47 @@ function XMLModal({ xml, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.5)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col"
+        className="bg-white dark:bg-[#0d1426] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <div>
-            <div className="font-extrabold text-slate-900">Exportar Auditoría XML</div>
-            <div className="text-xs text-slate-400 mt-0.5">Vista previa del archivo generado</div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 dark:bg-blue-500/15 flex items-center justify-center">
+              <FileText size={16} className="text-blue-500" />
+            </div>
+            <div>
+              <div className="font-black text-slate-900 dark:text-white uppercase text-[11px] tracking-widest">
+                Exportar Auditoría XML
+              </div>
+              <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase tracking-wider">
+                Vista previa del archivo generado
+              </div>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={download}>⬇ Descargar</Button>
-            <Button variant="outline" onClick={onClose}>Cerrar</Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={download}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] tracking-widest uppercase flex items-center gap-1.5"
+            >
+              <Download size={13} /> Descargar
+            </Button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
 
         {/* XML Content */}
         <div className="overflow-auto flex-1 p-4">
-          <pre className="text-xs font-mono text-slate-700 bg-slate-50 rounded-xl p-4 whitespace-pre-wrap">
+          <pre className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 rounded-xl p-4 whitespace-pre-wrap border border-slate-100 dark:border-slate-800 leading-relaxed">
             {xml}
           </pre>
         </div>
@@ -112,19 +144,19 @@ function XMLModal({ xml, onClose }) {
   );
 }
 
-// ── Componente principal ─────────────────────────────────────────
+// ── Componente principal ─────────────────────────────────────────────
 export default function Audit() {
   const { token } = useAuth();
 
-  const [logs, setLogs]         = useState([]);
-  const [pagination, setPag]    = useState({ page: 1, pages: 1, total: 0 });
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
-  const [filter, setFilter]     = useState("");
-  const [page, setPage]         = useState(1);
-  const [showXML, setShowXML]   = useState(false);
-  const [xml, setXml]           = useState("");
-  const [loadingXML, setLoadingXML] = useState(false);
+  const [logs, setLogs]                   = useState([]);
+  const [pagination, setPag]              = useState({ page: 1, pages: 1, total: 0 });
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState("");
+  const [filter, setFilter]               = useState("");
+  const [page, setPage]                   = useState(1);
+  const [showXML, setShowXML]             = useState(false);
+  const [xml, setXml]                     = useState("");
+  const [loadingXML, setLoadingXML]       = useState(false);
 
   const fetchLogs = useCallback(async () => {
     if (!token) return;
@@ -133,7 +165,6 @@ export default function Audit() {
     try {
       const params = new URLSearchParams({ page, limit: 30 });
       if (filter) params.append("event_type", filter);
-
       const res  = await fetch(`${API_BASE}/audit?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -153,17 +184,15 @@ export default function Audit() {
   async function handleExportXML() {
     setLoadingXML(true);
     try {
-      // Traer todos los logs para el XML (sin paginación)
       const params = new URLSearchParams({ page: 1, limit: 100 });
       if (filter) params.append("event_type", filter);
       const res  = await fetch(`${API_BASE}/audit?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      const generatedXml = generateAuditXML(data.logs);
-      setXml(generatedXml);
+      setXml(generateAuditXML(data.logs));
       setShowXML(true);
-    } catch (e) {
+    } catch {
       setError("No se pudo generar el XML.");
     } finally {
       setLoadingXML(false);
@@ -176,37 +205,50 @@ export default function Audit() {
 
       <PageShell
         title="Auditoría"
-        subtitle="Registro de actividad del sistema."
+        subtitle={
+          <span className="text-slate-500 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] italic">
+            REGISTRO DE ACTIVIDAD DEL SISTEMA
+          </span>
+        }
         right={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={fetchLogs}>↺ Actualizar</Button>
-            <Button onClick={handleExportXML} disabled={loadingXML}>
-              {loadingXML ? "Generando..." : "⬇ Exportar XML"}
+            <Button
+              variant="outline"
+              onClick={fetchLogs}
+              disabled={loading}
+              className="flex items-center gap-1.5 font-black text-[10px] tracking-widest uppercase"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+              Actualizar
+            </Button>
+            <Button
+              onClick={handleExportXML}
+              disabled={loadingXML}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] tracking-widest uppercase flex items-center gap-1.5 shadow-lg shadow-blue-500/20"
+            >
+              {loadingXML
+                ? <><Loader2 size={13} className="animate-spin" /> Generando...</>
+                : <><Download size={13} /> Exportar XML</>
+              }
             </Button>
           </div>
         }
       >
         {/* ── Filtros ── */}
-        <Card>
+        <Card className="bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800">
           <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-slate-500 font-medium">Filtrar por:</span>
-            {[
-              { key: "",                    label: "Todos"          },
-              { key: "LOGIN",               label: "Logins"         },
-              { key: "USER_REGISTER",       label: "Registros"      },
-              { key: "USER_VERIFIED",       label: "Verificaciones" },
-              { key: "ALERT_STATUS_CHANGE", label: "Alertas"        },
-              { key: "IOT_ALERT",           label: "IoT"            },
-              { key: "DEVICE_REGISTER",     label: "Dispositivos"   },
-            ].map((f) => (
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1">
+              Filtrar:
+            </span>
+            {FILTERS.map((f) => (
               <button
                 key={f.key}
                 onClick={() => { setFilter(f.key); setPage(1); }}
-                className="px-3 py-1 rounded-full text-xs font-semibold transition"
-                style={{
-                  background: filter === f.key ? "#0f172a" : "#f1f5f9",
-                  color:      filter === f.key ? "#ffffff" : "#475569",
-                }}
+                className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${
+                  filter === f.key
+                    ? "bg-slate-900 dark:bg-blue-600 text-white shadow-sm"
+                    : "bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-transparent dark:border-slate-700/50"
+                }`}
               >
                 {f.label}
               </button>
@@ -215,50 +257,74 @@ export default function Audit() {
         </Card>
 
         {/* ── Tabla de logs ── */}
-        <Card title={`${pagination.total} eventos registrados`}>
+        <Card className="bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl p-0">
+          {/* Sub-header de la tabla */}
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-3">
+            <ShieldCheck size={15} className="text-blue-500 shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+              {loading ? "Cargando registros..." : `${pagination.total} eventos registrados`}
+            </span>
+          </div>
+
           {loading ? (
-            <div className="flex items-center justify-center h-32 text-slate-400 gap-2">
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
-              </svg>
-              Cargando logs...
+            <div className="flex items-center justify-center h-40 gap-3 text-slate-400 dark:text-slate-600">
+              <Loader2 size={20} className="animate-spin text-blue-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest animate-pulse">Cargando logs...</span>
             </div>
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-              {error}
+            <div className="m-4 flex items-center gap-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-xs rounded-xl px-5 py-4">
+              <AlertCircle size={16} className="shrink-0" />
+              <span className="font-black uppercase text-[10px] tracking-wide">{error}</span>
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-sm text-slate-400 text-center py-8">
-              Sin eventos registrados aún.
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <FileText size={36} className="text-slate-200 dark:text-slate-800 animate-pulse" />
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 dark:text-slate-700 italic">
+                Sin eventos registrados
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left text-xs text-slate-400 font-medium pb-2 pr-4">Evento</th>
-                    <th className="text-left text-xs text-slate-400 font-medium pb-2 pr-4">Descripción</th>
-                    <th className="text-left text-xs text-slate-400 font-medium pb-2 pr-4">Usuario</th>
-                    <th className="text-left text-xs text-slate-400 font-medium pb-2">Fecha</th>
+                  <tr className="bg-slate-50/70 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800/80">
+                    <th className="text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600 px-6 py-4">
+                      Evento
+                    </th>
+                    <th className="text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600 px-4 py-4">
+                      Descripción
+                    </th>
+                    <th className="text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600 px-4 py-4">
+                      Usuario
+                    </th>
+                    <th className="text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600 px-6 py-4">
+                      Fecha
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
                   {logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50 transition">
-                      <td className="py-2.5 pr-4">
+                    <tr
+                      key={log.id}
+                      className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors"
+                    >
+                      <td className="py-4 px-6">
                         <EventPill type={log.eventType} />
                       </td>
-                      <td className="py-2.5 pr-4 text-slate-700 max-w-xs truncate">
+                      <td className="py-4 px-4 text-slate-600 dark:text-slate-400 text-[11px] max-w-xs truncate font-medium">
                         {log.description}
                       </td>
-                      <td className="py-2.5 pr-4">
-                        <div className="text-slate-700 font-medium">{log.user}</div>
+                      <td className="py-4 px-4">
+                        <div className="text-slate-800 dark:text-slate-200 font-black text-[11px] uppercase tracking-tight">
+                          {log.user}
+                        </div>
                         {log.email && (
-                          <div className="text-xs text-slate-400">{log.email}</div>
+                          <div className="text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-tighter mt-0.5">
+                            {log.email}
+                          </div>
                         )}
                       </td>
-                      <td className="py-2.5 text-xs text-slate-500 whitespace-nowrap">
+                      <td className="py-4 px-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase italic whitespace-nowrap">
                         {formatDate(log.createdAt)}
                       </td>
                     </tr>
@@ -270,25 +336,25 @@ export default function Audit() {
 
           {/* ── Paginación ── */}
           {pagination.pages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
-              <span className="text-xs text-slate-400">
-                Página {pagination.page} de {pagination.pages}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800/80">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                Pág. {pagination.page} de {pagination.pages}
               </span>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
+                <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
                 >
-                  ← Anterior
-                </Button>
-                <Button
-                  variant="outline"
+                  <ChevronLeft size={16} />
+                </button>
+                <button
                   disabled={page >= pagination.pages}
                   onClick={() => setPage((p) => p + 1)}
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
                 >
-                  Siguiente →
-                </Button>
+                  <ChevronRight size={16} />
+                </button>
               </div>
             </div>
           )}
