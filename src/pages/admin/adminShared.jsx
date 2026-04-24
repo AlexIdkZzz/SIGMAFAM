@@ -6,11 +6,13 @@ export function useAdminFetch() {
   const { token } = useAuth();
 
   async function apiFetch(path, options = {}) {
-    const res = await fetch(${API_BASE}${path}, {
+    // CORREGIDO: Se agregaron backticks para la URL
+    const res = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
-        Authorization: Bearer ${token},
+        // CORREGIDO: Se agregaron backticks para el token
+        Authorization: `Bearer ${token}`,
         ...(options.headers ?? {}),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -66,7 +68,8 @@ export function Avatar({ name = "?" }) {
 
 export function Badge({ children, className = "" }) {
   return (
-    <span className={inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${className}}>
+    // CORREGIDO: Se agregaron llaves y backticks para las clases dinámicas
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${className}`}>
       {children}
     </span>
   );
@@ -126,7 +129,8 @@ export function ActionBtn({ children, variant = "default", onClick, disabled }) 
     <button
       onClick={onClick}
       disabled={disabled}
-      className={text-[11px] border rounded px-2.5 py-1 mr-1 transition-colors cursor-pointer disabled:opacity-50 ${styles[variant]}}
+      // CORREGIDO: Se agregaron llaves y backticks para combinar estilos
+      className={`text-[11px] border rounded px-2.5 py-1 mr-1 transition-colors cursor-pointer disabled:opacity-50 ${styles[variant]}`}
     >
       {children}
     </button>
@@ -175,7 +179,8 @@ export function BtnPrimary({ children, onClick, variant = "danger", disabled }) 
     default: "bg-slate-800 hover:bg-slate-900 text-white",
   };
   return (
-    <button onClick={onClick} disabled={disabled} className={text-sm px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${styles[variant]}}>
+    // CORREGIDO: Se agregaron llaves y backticks para el variant
+    <button onClick={onClick} disabled={disabled} className={`text-sm px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${styles[variant]}`}>
       {children}
     </button>
   );
