@@ -3,10 +3,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell
 } from "recharts";
-import { MapContainer, TileLayer, Circle, Tooltip as MapTooltip, GeoJSON } from "react-leaflet";
+import { MapContainer, TileLayer } from "react-leaflet";
 import { 
   TrendingUp, Activity, CheckCircle2, Clock, 
-  AlertCircle, BarChart3, Map as MapIcon, ArrowLeft, Shield
+  BarChart3, Map as MapIcon
 } from "lucide-react";
 import { PageShell, Card } from "./_ui";
 import { useAuth } from "../app/auth/AuthContext";
@@ -14,48 +14,15 @@ import { useAuth } from "../app/auth/AuthContext";
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
 const STATUS_THEME = {
-  RECEIVED: { color: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" },
-  ACTIVE:   { color: "#ef4444", bg: "bg-red-50 dark:bg-red-500/10",   text: "text-red-600 dark:text-red-400" },
-  ATTENDED: { color: "#0ea5e9", bg: "bg-sky-50 dark:bg-sky-500/10",   text: "text-sky-600 dark:text-sky-400" },
-  CLOSED:   { color: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" },
+  RECEIVED: { color: "#f59e0b", text: "text-amber-600 dark:text-amber-400" },
+  ACTIVE:   { color: "#ef4444", text: "text-red-600 dark:text-red-400" },
+  ATTENDED: { color: "#0ea5e9", text: "text-sky-600 dark:text-sky-400" },
+  CLOSED:   { color: "#10b981", text: "text-emerald-600 dark:text-emerald-400" },
 };
 
-// ── GeoJSON de colonias ──────────────────────────────────────────────────────
-const COLONIAS_GEOJSON = {
-  type: "FeatureCollection",
-  features: [
-    {
-      type: "Feature",
-      properties: { name: "Colonia 1" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [-103.4165010, 20.6719563],
-          [-103.3473385, 20.6751707],
-          [-103.2259525, 20.6576456],
-          [-103.2413723, 20.6237413],
-          [-103.3361581, 20.6025191],
-          [-103.4165010, 20.6719563],
-        ]],
-      },
-    },
-  ],
-};
-
-const geoJsonStyle = {
-  color: "#ef4444",
-  weight: 2.5,
-  opacity: 0.9,
-  fillColor: "#ef4444",
-  fillOpacity: 0.08,
-};
-
-// ── MetricCard ───────────────────────────────────────────────────────────────
 function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
   return (
-    /* CORREGIDO: Se agregaron llaves y backticks */
-    <div className={`relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 dark:shadow-none group transition-all duration-300 hover:-translate-y-1`}>
-      {/* CORREGIDO: Se agregaron llaves y backticks */}
+    <div className={`metric-card-custom relative overflow-hidden bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-900 rounded-[2rem] p-6 shadow-xl dark:shadow-none transition-all duration-300 hover:-translate-y-1`}>
       <div className={`absolute top-0 left-0 w-1.5 h-full ${borderSide}`} />
       <div className="flex justify-between items-start">
         <div>
@@ -67,8 +34,7 @@ function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
             </p>
           )}
         </div>
-        {/* CORREGIDO: Se agregaron llaves y backticks */}
-        <div className={`p-3 rounded-2xl ${colorClass} transition-transform group-hover:scale-110`}>
+        <div className={`p-3 rounded-2xl ${colorClass}`}>
           <Icon size={20} />
         </div>
       </div>
@@ -76,87 +42,28 @@ function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
   );
 }
 
-// ── Overlay full-screen de zonas de riesgo ───────────────────────────────────
-function RiskMapOverlay({ hotspots, onClose }) {
-  return (
-    <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col">
-      <div className="flex items-center gap-4 px-6 py-4 bg-slate-900 border-b border-slate-800 flex-shrink-0">
-        <button onClick={onClose} className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors group">
-          <div className="w-9 h-9 rounded-2xl bg-slate-800 group-hover:bg-slate-700 flex items-center justify-center transition-colors">
-            <ArrowLeft size={18} />
-          </div>
-          <span className="text-sm font-bold">Regresar</span>
-        </button>
-        <div className="h-6 w-px bg-slate-700" />
-        <div className="flex items-center gap-2">
-          <Shield size={16} className="text-red-400" />
-          <span className="text-sm font-black text-white uppercase tracking-widest">Zonas de Riesgo</span>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">En vivo</span>
-        </div>
-      </div>
-
-      <div className="flex-1 relative">
-        <MapContainer center={[20.6736, -103.4053]} zoom={12} className="h-full w-full" zoomControl={true}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <GeoJSON data={COLONIAS_GEOJSON} style={geoJsonStyle} />
-          {(hotspots ?? []).map((h, i) => (
-            <Circle
-              key={i}
-              center={[Number(h.lat), Number(h.lng)]}
-              radius={Math.max(50, Number(h.intensity) * 120)}
-              pathOptions={{ color: "#ef4444", fillColor: "#ef4444", fillOpacity: 0.4, weight: 0 }}
-            >
-              <MapTooltip className="sigma-tooltip">ZONA CRÍTICA: {h.intensity} alertas</MapTooltip>
-            </Circle>
-          ))}
-        </MapContainer>
-      </div>
-    </div>
-  );
-}
-
-// ── Stats (componente principal) ─────────────────────────────────────────────
 export default function Stats() {
   const { token } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showRiskMap, setShowRiskMap] = useState(false);
-
-  const isDark = document.documentElement.classList.contains("dark");
+  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
 
   useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    
     if (!token) return;
-    /* CORREGIDO: Se agregaron backticks en el fetch */
     fetch(`${API_BASE}/stats`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => { if (d.error) throw new Error(d.error); setData(d); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((d) => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+
+    return () => observer.disconnect();
   }, [token]);
 
-  if (loading || error) {
-    return (
-      <PageShell title="Estadísticas" subtitle={error ? "Error de conexión" : "Sincronizando datos..."}>
-        <div className="h-96 flex flex-col items-center justify-center gap-4">
-          {error ? (
-            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-6 rounded-3xl border border-red-100 dark:border-red-800 font-bold max-w-md text-center">
-              <AlertCircle size={40} className="mx-auto mb-4 opacity-50" />
-              {error}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-slate-100 dark:border-slate-800 border-t-slate-900 dark:border-t-blue-500 rounded-full animate-spin" />
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Analizando registros</p>
-            </div>
-          )}
-        </div>
-      </PageShell>
-    );
-  }
+  if (loading || !data) return <PageShell title="Estadísticas">...</PageShell>;
 
   const barData = (data.byDay ?? []).map((d) => ({
     day: new Date(d.day).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }),
@@ -167,71 +74,111 @@ export default function Stats() {
   (data.byStatus ?? []).forEach((s) => { statusMap[s.status] = Number(s.total); });
 
   return (
-    <>
-      {showRiskMap && <RiskMapOverlay hotspots={data.hotspots} onClose={() => setShowRiskMap(false)} />}
+    <PageShell title="Dashboard Operativo" subtitle="Análisis predictivo e histórico.">
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard label="Total Histórico" value={data.total} sub="+12%" icon={BarChart3} colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" borderSide="bg-indigo-500" />
+        <MetricCard label="Activos" value={(statusMap.ACTIVE ?? 0) + (statusMap.RECEIVED ?? 0)} sub="Prioridad" icon={Activity} colorClass="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400" borderSide="bg-red-500" />
+        <MetricCard label="Resueltos" value={statusMap.CLOSED ?? 0} sub="98% éxito" icon={CheckCircle2} colorClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400" borderSide="bg-emerald-500" />
+        <MetricCard label="Latencia" value={`${data.avgResponseMinutes ?? 0}m`} sub="Promedio" icon={Clock} colorClass="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400" borderSide="bg-amber-500" />
+      </div>
 
-      <PageShell title="Dashboard Operativo" subtitle="Análisis predictivo e histórico de seguridad familiar.">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <MetricCard label="Total Histórico" value={data.total} sub="+12% vs mes anterior" icon={BarChart3}
-            colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" borderSide="bg-indigo-500" />
-          <MetricCard label="Atención Requerida" value={(statusMap.ACTIVE ?? 0) + (statusMap.RECEIVED ?? 0)} sub="Prioridad inmediata" icon={Activity}
-            colorClass="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400" borderSide="bg-red-500" />
-          <MetricCard label="Casos Resueltos" value={statusMap.CLOSED ?? 0} sub="Tasa de éxito 98%" icon={CheckCircle2}
-            colorClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400" borderSide="bg-emerald-500" />
-          {/* CORREGIDO: Se agregaron llaves y backticks en el value */}
-          <MetricCard label="Latencia Media" value={`${data.avgResponseMinutes ?? 0}m`} sub="Tiempo de respuesta" icon={Clock}
-            colorClass="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400" borderSide="bg-amber-500" />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2">
-            <Card title="Tendencia de Incidentes" icon={TrendingUp} className="dark:bg-slate-900 dark:border-slate-800 transition-colors">
-              <div className="h-[350px] mt-6">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData}>
-                    <CartesianGrid strokeDasharray="8 8" vertical={false} stroke={isDark ? "#334155" : "#cbd5e1"} strokeOpacity={0.4} />
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: isDark ? "#64748b" : "#94a3b8" }} dy={10} />
-                    <YAxis hide />
-                    <Tooltip cursor={{ fill: isDark ? "rgba(255,255,255,0.05)" : "rgba(148, 163, 184, 0.1)" }}
-                      contentStyle={{ borderRadius: "20px", border: "none", backgroundColor: isDark ? "#1e293b" : "#0f172a", color: "#fff", fontWeight: 800 }} />
-                    <Bar dataKey="Alertas" radius={[10, 10, 10, 10]} barSize={32}>
-                      {barData.map((_, index) => (
-                        /* CORREGIDO: Se usaron backticks en la key */
-                        <Cell key={`cell-${index}`} fill={index === barData.length - 1 ? "#3b82f6" : (isDark ? "#475569" : "#94a3b8")} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          </div>
-
-          <Card title="Estado del Sistema" icon={Activity} className="dark:bg-slate-900 dark:border-slate-800 transition-colors">
-            <div className="space-y-6 mt-6">
-              {(data.byStatus ?? []).map((s) => {
-                const theme = STATUS_THEME[s.status] || { color: "#64748b", bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-600 dark:text-slate-400" };
-                const pct = data.total > 0 ? Math.round((s.total / data.total) * 100) : 0;
-                return (
-                  <div key={s.status} className="group">
-                    <div className="flex justify-between items-end mb-2">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{s.status}</p>
-                        <p className="text-sm font-black text-slate-900 dark:text-white">{s.total} unidades</p>
-                      </div>
-                      {/* CORREGIDO: Se agregaron llaves y backticks */}
-                      <p className={`text-xs font-black ${theme.text}`}>{pct}%</p>
-                    </div>
-                    <div className="h-3 bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-100 dark:border-slate-700 p-0.5">
-                      {/* CORREGIDO: Se agregaron llaves y backticks en el style */}
-                      <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${pct}%`, backgroundColor: theme.color }} />
-                    </div>
-                  </div>
-                );
-              })}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="lg:col-span-2">
+          <Card title="Tendencia de Incidentes" icon={TrendingUp} className="stats-card-dark">
+            <div className="h-[350px] mt-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData}>
+                  <CartesianGrid strokeDasharray="8 8" vertical={false} stroke={isDark ? "#1e293b" : "#cbd5e1"} strokeOpacity={0.3} />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: isDark ? '#475569' : '#94a3b8' }} dy={10} />
+                  <YAxis hide />
+                  <Tooltip 
+                    cursor={{ fill: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}
+                    contentStyle={{ borderRadius: '20px', border: 'none', backgroundColor: '#0f172a', color: '#fff' }}
+                  />
+                  <Bar dataKey="Alertas" radius={[10, 10, 10, 10]} barSize={32}>
+                    {barData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={index === barData.length - 1 ? '#3b82f6' : (isDark ? '#1e293b' : '#94a3b8')} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </Card>
         </div>
-      </PageShell>
-    </>
+
+        <Card title="Estado del Sistema" icon={Activity} className="stats-card-dark">
+          <div className="space-y-6 mt-6">
+            {(data.byStatus ?? []).map((s) => {
+              const theme = STATUS_THEME[s.status] || { color: "#64748b", text: "text-slate-500" };
+              const pct = data.total > 0 ? Math.round((s.total / data.total) * 100) : 0;
+              return (
+                <div key={s.status}>
+                  <div className="flex justify-between items-end mb-2">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.status}</p>
+                    <p className={`text-xs font-black ${theme.text}`}>{pct}%</p>
+                  </div>
+                  <div className="h-2 bg-slate-50 dark:bg-slate-900/50 rounded-full overflow-hidden border dark:border-slate-800/50">
+                    <div className="h-full" style={{ width: `${pct}%`, backgroundColor: theme.color }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      <Card title="Zonificación de Riesgo" icon={MapIcon} className="stats-card-dark">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mt-6">
+          <div className="lg:col-span-3">
+            <div className="h-[450px] rounded-[2.5rem] overflow-hidden border-8 border-slate-50 dark:border-slate-900 bg-slate-100 dark:bg-[#050a18]">
+              <div className="h-full w-full dark-map-filter">
+                <MapContainer center={[20.6736, -103.4053]} zoom={13} className="h-full w-full">
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                </MapContainer>
+              </div>
+            </div>
+          </div>
+          {/* CAMBIO: Quitamos el bg-slate-900 fijo y usamos clases dinámicas */}
+          <div className="p-6 bg-slate-50 dark:bg-[#0d1426] border border-slate-100 dark:border-slate-800 rounded-[2rem] transition-colors duration-300">
+             <h4 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-4 tracking-[0.2em]">Análisis</h4>
+             <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold">Hotspots</p>
+                  <p className="text-2xl font-black text-slate-900 dark:text-red-400">{data.hotspots?.length || 0}</p>
+                </div>
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 italic leading-relaxed">
+                    "Se observa un incremento de actividad en el sector noroccidente durante las últimas 24 horas."
+                  </p>
+                </div>
+             </div>
+          </div>
+        </div>
+      </Card>
+
+      <style>{`
+        /* FORZAR ESTILOS EN MODO OSCURO */
+        .dark .stats-card-dark {
+          background-color: #050a18 !important;
+          border-color: #0f172a !important;
+        }
+        
+        /* Asegurar que los títulos de Card sean blancos en dark mode */
+        .dark .stats-card-dark h2, 
+        .dark .stats-card-dark h3,
+        .dark .stats-card-dark span,
+        .dark .stats-card-dark p:not(.text-slate-500) {
+          color: #ffffff !important;
+        }
+
+        .dark .dark-map-filter .leaflet-tile-pane {
+          filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        .dark .leaflet-container {
+          background: #050a18 !important;
+        }
+      `}</style>
+    </PageShell>
   );
 }
