@@ -10,7 +10,7 @@ export default function Topbar({ onMenuClick }) {
     setIsDark(document.documentElement.classList.contains('dark'));
   }, []);
 
-  // Función mágica para alternar el tema global
+  // Función para alternar el tema global
   const toggleTheme = () => {
     const html = document.documentElement;
     if (html.classList.contains('dark')) {
@@ -56,12 +56,6 @@ export default function Topbar({ onMenuClick }) {
             <span className="text-sm text-slate-700 dark:text-slate-300 hidden sm:inline">
               {user.fullName} · <b className="text-slate-900 dark:text-white">{user.role}</b>
             </span>
-            <button
-              onClick={logout}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm transition"
-            >
-              Logout
-            </button>
           </>
         ) : (
           <span className="text-sm text-slate-500 dark:text-slate-400">No autenticado</span>
