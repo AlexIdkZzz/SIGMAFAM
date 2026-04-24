@@ -56,6 +56,7 @@ export default function AppRouter() {
         <Route path="alerts"    element={<Alerts />} />
         <Route path="map"       element={<MapLive />} />
         <Route path="history"   element={<History />} />
+        <Route path="settings"   element={<Settings />} />
 
         <Route path="stats"
           element={<RequireAuth allowRoles={["ADMIN","JEFE_FAMILIA"]}><Stats /></RequireAuth>}
