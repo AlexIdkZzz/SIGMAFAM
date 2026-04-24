@@ -21,7 +21,6 @@ export function AuthProvider({ children }) {
             email:    payload.email,
             fullName: payload.fullName ?? "",
             role:     payload.role ?? null,
-            age:      payload.age  ?? null,
           });
         }
       } catch {
@@ -64,18 +63,12 @@ export function AuthProvider({ children }) {
     return data;
   }
 
-  function updateSession(newToken, newUser) {
-    localStorage.setItem("sigmafam_token", newToken);
-    setToken(newToken);
-    setUser(newUser);
-  }
-
   function logout() {
     _clearSession();
   }
 
   const value = useMemo(
-    () => ({ user, token, loading, login, register, logout, updateSession }),
+    () => ({ user, token, loading, login, register, logout }),
     [user, token, loading]
   );
 

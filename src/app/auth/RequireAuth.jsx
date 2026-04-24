@@ -27,9 +27,6 @@ export default function RequireAuth({ children, allowRoles }) {
   // No autenticado → login
   if (!user) return <Navigate to="/login" replace />;
 
-  // Autenticado pero sin rol o sin edad → onboarding pendiente
-  if (!user.role || !user.age) return <Navigate to="/onboarding" replace />;
-
   // Si se requiere rol y el usuario tiene rol asignado, validar
   if (allowRoles && user.role && !allowRoles.includes(user.role)) {
     return (
