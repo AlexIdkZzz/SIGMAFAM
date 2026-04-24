@@ -22,7 +22,7 @@ const STATUS_THEME = {
 
 function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
   return (
-    <div className={`metric-card-custom relative overflow-hidden bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-900 rounded-[2rem] p-6 shadow-xl dark:shadow-none transition-all duration-300 hover:-translate-y-1`}>
+    <div className="relative overflow-hidden bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-900 rounded-[2rem] p-6 shadow-xl dark:shadow-none transition-all duration-300 hover:-translate-y-1">
       <div className={`absolute top-0 left-0 w-1.5 h-full ${borderSide}`} />
       <div className="flex justify-between items-start">
         <div>
@@ -76,6 +76,7 @@ export default function Stats() {
   return (
     <PageShell title="Dashboard Operativo" subtitle="Análisis predictivo e histórico.">
       
+      {/* 1. Métricas Superiores */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard label="Total Histórico" value={data.total} sub="+12%" icon={BarChart3} colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" borderSide="bg-indigo-500" />
         <MetricCard label="Activos" value={(statusMap.ACTIVE ?? 0) + (statusMap.RECEIVED ?? 0)} sub="Prioridad" icon={Activity} colorClass="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400" borderSide="bg-red-500" />
@@ -84,8 +85,9 @@ export default function Stats() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2">
-          <Card title="Tendencia de Incidentes" icon={TrendingUp} className="stats-card-dark">
+        {/* 2. Tendencia (Gráfico) */}
+        <div className="lg:col-span-2 chart-card-container">
+          <Card title="Tendencia de Incidentes" icon={TrendingUp}>
             <div className="h-[350px] mt-6">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barData}>
@@ -107,74 +109,86 @@ export default function Stats() {
           </Card>
         </div>
 
-        <Card title="Estado del Sistema" icon={Activity} className="stats-card-dark">
-          <div className="space-y-6 mt-6">
-            {(data.byStatus ?? []).map((s) => {
-              const theme = STATUS_THEME[s.status] || { color: "#64748b", text: "text-slate-500" };
-              const pct = data.total > 0 ? Math.round((s.total / data.total) * 100) : 0;
-              return (
-                <div key={s.status}>
-                  <div className="flex justify-between items-end mb-2">
-                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.status}</p>
-                    <p className={`text-xs font-black ${theme.text}`}>{pct}%</p>
+        {/* 3. Estado del Sistema */}
+        <div className="status-card-container">
+          <Card title="Estado del Sistema" icon={Activity}>
+            <div className="space-y-6 mt-6">
+              {(data.byStatus ?? []).map((s) => {
+                const theme = STATUS_THEME[s.status] || { color: "#64748b", text: "text-slate-500" };
+                const pct = data.total > 0 ? Math.round((s.total / data.total) * 100) : 0;
+                return (
+                  <div key={s.status}>
+                    <div className="flex justify-between items-end mb-2">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.status}</p>
+                      <p className={`text-xs font-black ${theme.text}`}>{pct}%</p>
+                    </div>
+                    <div className="h-2 bg-slate-50 dark:bg-slate-900/50 rounded-full overflow-hidden border dark:border-slate-800/50">
+                      <div className="h-full" style={{ width: `${pct}%`, backgroundColor: theme.color }} />
+                    </div>
                   </div>
-                  <div className="h-2 bg-slate-50 dark:bg-slate-900/50 rounded-full overflow-hidden border dark:border-slate-800/50">
-                    <div className="h-full" style={{ width: `${pct}%`, backgroundColor: theme.color }} />
-                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* 4. Zonificación y Análisis */}
+      <div className="map-card-container">
+        <Card title="Zonificación de Riesgo" icon={MapIcon}>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mt-6">
+            <div className="lg:col-span-3">
+              <div className="h-[450px] rounded-[2.5rem] overflow-hidden border-8 border-slate-50 dark:border-slate-900 bg-slate-100 dark:bg-[#050a18] relative">
+                <div className="h-full w-full dark-map-filter">
+                  <MapContainer center={[20.6736, -103.4053]} zoom={13} className="h-full w-full">
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  </MapContainer>
                 </div>
-              );
-            })}
+              </div>
+            </div>
+            
+            <div className="p-6 bg-slate-50 dark:bg-[#0d1426] border border-slate-100 dark:border-slate-800 rounded-[2rem] transition-colors duration-300 h-fit">
+               <h4 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-4 tracking-[0.2em]">Análisis</h4>
+               <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold">Hotspots</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-red-400">{data.hotspots?.length || 0}</p>
+                  </div>
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-sm text-slate-600 dark:text-slate-300 italic leading-relaxed">
+                      "Se observa un incremento de actividad en el sector noroccidente durante las últimas 24 horas."
+                    </p>
+                  </div>
+               </div>
+            </div>
           </div>
         </Card>
       </div>
 
-      <Card title="Zonificación de Riesgo" icon={MapIcon} className="stats-card-dark">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mt-6">
-          <div className="lg:col-span-3">
-            <div className="h-[450px] rounded-[2.5rem] overflow-hidden border-8 border-slate-50 dark:border-slate-900 bg-slate-100 dark:bg-[#050a18]">
-              <div className="h-full w-full dark-map-filter">
-                <MapContainer center={[20.6736, -103.4053]} zoom={13} className="h-full w-full">
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                </MapContainer>
-              </div>
-            </div>
-          </div>
-          {/* CAMBIO: Quitamos el bg-slate-900 fijo y usamos clases dinámicas */}
-          <div className="p-6 bg-slate-50 dark:bg-[#0d1426] border border-slate-100 dark:border-slate-800 rounded-[2rem] transition-colors duration-300">
-             <h4 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-4 tracking-[0.2em]">Análisis</h4>
-             <div className="space-y-4">
-                <div>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold">Hotspots</p>
-                  <p className="text-2xl font-black text-slate-900 dark:text-red-400">{data.hotspots?.length || 0}</p>
-                </div>
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <p className="text-sm text-slate-600 dark:text-slate-300 italic leading-relaxed">
-                    "Se observa un incremento de actividad en el sector noroccidente durante las últimas 24 horas."
-                  </p>
-                </div>
-             </div>
-          </div>
-        </div>
-      </Card>
-
       <style>{`
-        /* FORZAR ESTILOS EN MODO OSCURO */
-        .dark .stats-card-dark {
+        /* SOLUCIÓN RADICAL: Si el componente Card tiene bg-white hardcoded, esto lo anula */
+        
+        .dark .chart-card-container > div,
+        .dark .status-card-container > div,
+        .dark .map-card-container > div {
           background-color: #050a18 !important;
           border-color: #0f172a !important;
+          color: white !important;
         }
-        
-        /* Asegurar que los títulos de Card sean blancos en dark mode */
-        .dark .stats-card-dark h2, 
-        .dark .stats-card-dark h3,
-        .dark .stats-card-dark span,
-        .dark .stats-card-dark p:not(.text-slate-500) {
-          color: #ffffff !important;
+
+        /* Forzar que los títulos de Card también sean blancos */
+        .dark .chart-card-container h2, 
+        .dark .status-card-container h2,
+        .dark .map-card-container h2,
+        .dark .chart-card-container h3,
+        .dark .status-card-container h3 {
+          color: white !important;
         }
 
         .dark .dark-map-filter .leaflet-tile-pane {
           filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
         }
+        
         .dark .leaflet-container {
           background: #050a18 !important;
         }
