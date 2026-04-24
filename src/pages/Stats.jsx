@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell
 } from "recharts";
-import { MapContainer, TileLayer, Circle, Tooltip as MapTooltip } from "react-leaflet";
+import { MapContainer, TileLayer } from "react-leaflet";
 import { 
   TrendingUp, Activity, CheckCircle2, Clock, 
   BarChart3, Map as MapIcon
@@ -14,16 +14,15 @@ import { useAuth } from "../app/auth/AuthContext";
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
 const STATUS_THEME = {
-  RECEIVED: { color: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" },
-  ACTIVE:   { color: "#ef4444", bg: "bg-red-50 dark:bg-red-500/10",   text: "text-red-600 dark:text-red-400" },
-  ATTENDED: { color: "#0ea5e9", bg: "bg-sky-50 dark:bg-sky-500/10",   text: "text-sky-600 dark:text-sky-400" },
-  CLOSED:   { color: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" },
+  RECEIVED: { color: "#f59e0b", text: "text-amber-600 dark:text-amber-400" },
+  ACTIVE:   { color: "#ef4444", text: "text-red-600 dark:text-red-400" },
+  ATTENDED: { color: "#0ea5e9", text: "text-sky-600 dark:text-sky-400" },
+  CLOSED:   { color: "#10b981", text: "text-emerald-600 dark:text-emerald-400" },
 };
 
 function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
   return (
-    // CAMBIO: dark:bg-[#050a18] y bordes slate-900 para que casi no se vean
-    <div className={`relative overflow-hidden bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-900 rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 dark:shadow-none group transition-all duration-300 hover:-translate-y-1`}>
+    <div className={`metric-card-custom relative overflow-hidden bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-900 rounded-[2rem] p-6 shadow-xl dark:shadow-none transition-all duration-300 hover:-translate-y-1`}>
       <div className={`absolute top-0 left-0 w-1.5 h-full ${borderSide}`} />
       <div className="flex justify-between items-start">
         <div>
@@ -35,7 +34,7 @@ function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-2xl ${colorClass} transition-transform group-hover:scale-110`}>
+        <div className={`p-3 rounded-2xl ${colorClass}`}>
           <Icon size={20} />
         </div>
       </div>
@@ -47,7 +46,6 @@ export default function Stats() {
   const { token } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
 
   useEffect(() => {
@@ -59,14 +57,13 @@ export default function Stats() {
     if (!token) return;
     fetch(`${API_BASE}/stats`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => { if (d.error) throw new Error(d.error); setData(d); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((d) => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
 
     return () => observer.disconnect();
   }, [token]);
 
-  if (loading || error) return <PageShell title="Estadísticas">...</PageShell>;
+  if (loading || !data) return <PageShell title="Estadísticas">...</PageShell>;
 
   const barData = (data.byDay ?? []).map((d) => ({
     day: new Date(d.day).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }),
@@ -79,7 +76,6 @@ export default function Stats() {
   return (
     <PageShell title="Dashboard Operativo" subtitle="Análisis predictivo e histórico.">
       
-      {/* 1. Métricas con Black Background */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard label="Total Histórico" value={data.total} sub="+12%" icon={BarChart3} colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" borderSide="bg-indigo-500" />
         <MetricCard label="Activos" value={(statusMap.ACTIVE ?? 0) + (statusMap.RECEIVED ?? 0)} sub="Prioridad" icon={Activity} colorClass="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400" borderSide="bg-red-500" />
@@ -88,9 +84,8 @@ export default function Stats() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* 2. Tendencia de Incidentes */}
         <div className="lg:col-span-2">
-          <Card title="Tendencia de Incidentes" icon={TrendingUp} className="dark:bg-[#050a18] dark:border-slate-900">
+          <Card title="Tendencia de Incidentes" icon={TrendingUp} className="stats-card-dark">
             <div className="h-[350px] mt-6">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barData}>
@@ -99,7 +94,7 @@ export default function Stats() {
                   <YAxis hide />
                   <Tooltip 
                     cursor={{ fill: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}
-                    contentStyle={{ borderRadius: '20px', border: 'none', backgroundColor: isDark ? '#0f172a' : '#0f172a', color: '#fff' }}
+                    contentStyle={{ borderRadius: '20px', border: 'none', backgroundColor: '#0f172a', color: '#fff' }}
                   />
                   <Bar dataKey="Alertas" radius={[10, 10, 10, 10]} barSize={32}>
                     {barData.map((entry, index) => (
@@ -112,8 +107,7 @@ export default function Stats() {
           </Card>
         </div>
 
-        {/* 3. Estado del Sistema */}
-        <Card title="Estado del Sistema" icon={Activity} className="dark:bg-[#050a18] dark:border-slate-900">
+        <Card title="Estado del Sistema" icon={Activity} className="stats-card-dark">
           <div className="space-y-6 mt-6">
             {(data.byStatus ?? []).map((s) => {
               const theme = STATUS_THEME[s.status] || { color: "#64748b", text: "text-slate-500" };
@@ -121,11 +115,11 @@ export default function Stats() {
               return (
                 <div key={s.status}>
                   <div className="flex justify-between items-end mb-2">
-                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">{s.status}</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{s.status}</p>
                     <p className={`text-xs font-black ${theme.text}`}>{pct}%</p>
                   </div>
                   <div className="h-2 bg-slate-50 dark:bg-slate-900/50 rounded-full overflow-hidden border dark:border-slate-800/50">
-                    <div className="h-full transition-all duration-1000" style={{ width: `${pct}%`, backgroundColor: theme.color }} />
+                    <div className="h-full" style={{ width: `${pct}%`, backgroundColor: theme.color }} />
                   </div>
                 </div>
               );
@@ -134,28 +128,27 @@ export default function Stats() {
         </Card>
       </div>
 
-      {/* 4. Zonificación y Análisis */}
-      <Card title="Zonificación de Riesgo" icon={MapIcon} className="dark:bg-[#050a18] dark:border-slate-900">
+      <Card title="Zonificación de Riesgo" icon={MapIcon} className="stats-card-dark">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mt-6">
           <div className="lg:col-span-3">
-            <div className="h-[450px] rounded-[2.5rem] overflow-hidden border-8 border-slate-50 dark:border-slate-900 relative bg-slate-100 dark:bg-[#050a18]">
-              <div className="h-full w-full dark-map-filter transition-all duration-500">
+            <div className="h-[450px] rounded-[2.5rem] overflow-hidden border-8 border-slate-50 dark:border-slate-900 bg-slate-100 dark:bg-[#050a18]">
+              <div className="h-full w-full dark-map-filter">
                 <MapContainer center={[20.6736, -103.4053]} zoom={13} className="h-full w-full">
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 </MapContainer>
               </div>
             </div>
           </div>
-          {/* Panel de Análisis Lateral */}
-          <div className="p-6 bg-slate-900 dark:bg-[#0d1426] border dark:border-slate-800 rounded-[2rem] text-white">
-             <h4 className="text-[10px] font-black uppercase text-slate-500 mb-4 tracking-[0.2em]">Análisis</h4>
+          {/* CAMBIO: Quitamos el bg-slate-900 fijo y usamos clases dinámicas */}
+          <div className="p-6 bg-slate-50 dark:bg-[#0d1426] border border-slate-100 dark:border-slate-800 rounded-[2rem] transition-colors duration-300">
+             <h4 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-4 tracking-[0.2em]">Análisis</h4>
              <div className="space-y-4">
                 <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-bold">Hotspots</p>
-                  <p className="text-2xl font-black text-red-400">{data.hotspots?.length || 0}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold">Hotspots</p>
+                  <p className="text-2xl font-black text-slate-900 dark:text-red-400">{data.hotspots?.length || 0}</p>
                 </div>
-                <div className="pt-4 border-t border-slate-800">
-                  <p className="text-sm opacity-80 leading-relaxed italic text-slate-300">
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 italic leading-relaxed">
                     "Se observa un incremento de actividad en el sector noroccidente durante las últimas 24 horas."
                   </p>
                 </div>
@@ -165,6 +158,20 @@ export default function Stats() {
       </Card>
 
       <style>{`
+        /* FORZAR ESTILOS EN MODO OSCURO */
+        .dark .stats-card-dark {
+          background-color: #050a18 !important;
+          border-color: #0f172a !important;
+        }
+        
+        /* Asegurar que los títulos de Card sean blancos en dark mode */
+        .dark .stats-card-dark h2, 
+        .dark .stats-card-dark h3,
+        .dark .stats-card-dark span,
+        .dark .stats-card-dark p:not(.text-slate-500) {
+          color: #ffffff !important;
+        }
+
         .dark .dark-map-filter .leaflet-tile-pane {
           filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
         }
