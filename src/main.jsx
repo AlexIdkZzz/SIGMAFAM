@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import AppRouter from "./app/AppRouter";
 import { AuthProvider } from "./app/auth/AuthContext";
 import { AlertsProvider } from "./app/alerts/AlertsContext";
+import { ThemeProvider } from "./app/theme/ThemeContext";
 import "leaflet/dist/leaflet.css";
 import "./app/maps/leafletIconFix"; 
 import "./index.css";
@@ -24,11 +25,13 @@ const updateSW = registerSW({
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <AlertsProvider>
-          <AppRouter />
-        </AlertsProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AlertsProvider>
+            <AppRouter />
+          </AlertsProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
