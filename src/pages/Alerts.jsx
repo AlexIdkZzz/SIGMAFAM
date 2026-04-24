@@ -34,7 +34,6 @@ export default function Alerts() {
   } = useAlerts();
 
   const [drawerOpen, setDrawerOpen]   = useState(false);
-  const [confirmClose, setConfirmClose] = useState(false);
 
   const activeCount = useMemo(
     () => alerts.filter((a) => a.status === "ACTIVE" || a.status === "RECEIVED").length,
@@ -44,15 +43,16 @@ export default function Alerts() {
   return (
     <PageShell
       title="Gestión de Alertas"
-      // Se eliminó la clase opacity-40 y se cambió el color de gris a slate-500/slate-400 para legibilidad
-      subtitle={<span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">Monitoreo en tiempo real · Activas: {activeCount}</span>}
+      // FIX: Subtítulo con colores explícitos para dark mode
+      subtitle={<span className="text-slate-500 dark:text-slate-500/70 font-black uppercase tracking-[0.2em] text-[10px] italic">SISTEMA DE MONITOREO CRÍTICO · ACTIVAS: {activeCount}</span>}
       right={
         <div className="flex gap-3">
           <Button 
             variant="outline" 
             onClick={refreshActive} 
             disabled={loading} 
-            className="bg-white dark:bg-[#1e293b] text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-sm"
+            // FIX: Eliminado bg-white, forzado dark:bg-[#0d1426]
+            className="bg-transparent dark:bg-[#0d1426] text-slate-900 dark:text-slate-400 border-slate-200 dark:border-slate-800 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-sm hover:dark:text-white"
           >
             <RefreshCw size={14} className={loading ? "animate-spin mr-2" : "mr-2"} />
             {loading ? "Sincronizando" : "Actualizar"}
@@ -60,14 +60,15 @@ export default function Alerts() {
           <Button 
             variant="outline" 
             onClick={() => setDrawerOpen((v) => !v)} 
-            className="bg-white dark:bg-[#1e293b] text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-sm"
+            // FIX: Eliminado bg-white, forzado dark:bg-[#0d1426]
+            className="bg-transparent dark:bg-[#0d1426] text-slate-900 dark:text-slate-400 border-slate-200 dark:border-slate-800 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-sm hover:dark:text-white"
           >
             <LayoutPanelLeft size={14} className="mr-2" />
             {drawerOpen ? "Cerrar Panel" : "Ver Detalle"}
           </Button>
           <Button 
             onClick={simulateIncomingAlert} 
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
           >
             <Zap size={14} className="mr-2 fill-current" /> Simular Alerta
           </Button>
@@ -81,18 +82,19 @@ export default function Alerts() {
         </div>
       )}
 
-      {/* Se forzó bg-transparent y dark:bg-[#0d1426] para eliminar el recuadro blanco */}
-      <Card className="bg-transparent dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
+      {/* FIX: bg-transparent para que mande el fondo del body y dark:bg-[#0d1426] para el contenedor */}
+      <Card className="bg-transparent dark:bg-[#0d1426] border-slate-200 dark:border-slate-800/50 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse bg-transparent">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/30 text-left">
-                <th className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">ID</th>
-                <th className="py-5 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Usuario / Cliente</th>
-                <th className="py-5 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Timestamp</th>
-                <th className="py-5 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Origen</th>
-                <th className="py-5 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Estado</th>
-                <th className="py-5 px-6 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Acciones</th>
+              {/* FIX: bg-slate-900/50 para el header en modo oscuro */}
+              <tr className="border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 text-left">
+                <th className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">ID</th>
+                <th className="py-5 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">Usuario / Cliente</th>
+                <th className="py-5 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">Timestamp</th>
+                <th className="py-5 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">Origen</th>
+                <th className="py-5 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">Estado</th>
+                <th className="py-5 px-6 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">Acciones</th>
               </tr>
             </thead>
 
@@ -106,9 +108,9 @@ export default function Alerts() {
               ) : alerts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-32 text-center bg-transparent">
-                    <div className="flex flex-col items-center gap-4 opacity-40">
-                      <RefreshCw size={40} className="text-slate-300 dark:text-slate-700" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Sin registros activos</p>
+                    <div className="flex flex-col items-center gap-4">
+                      <RefreshCw size={40} className="text-slate-200 dark:text-slate-800 animate-pulse" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 dark:text-slate-700 italic">Sin registros activos</p>
                     </div>
                   </td>
                 </tr>
@@ -121,7 +123,8 @@ export default function Alerts() {
                       className={`group transition-all duration-200 cursor-pointer ${
                         isSel 
                           ? "bg-blue-500/5 dark:bg-blue-500/10" 
-                          : "bg-white dark:bg-[#0d1426] hover:bg-slate-50 dark:hover:bg-white/[0.02]"
+                          // FIX: Cambiado bg-white por bg-transparent en las filas
+                          : "bg-transparent hover:bg-slate-50 dark:hover:bg-white/[0.02]"
                       }`}
                       onClick={() => { selectAlert(a.id); setDrawerOpen(true); }}
                     >
@@ -129,16 +132,16 @@ export default function Alerts() {
                       <td className="py-6 px-4">
                         <div className="flex flex-col">
                            <span className="font-black text-slate-700 dark:text-slate-200 uppercase text-[11px] tracking-tight">{a.user}</span>
-                           <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Verified User</span>
+                           <span className="text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-tighter italic">Nodo Verificado</span>
                         </div>
                       </td>
-                      <td className="py-6 px-4 text-slate-500 dark:text-slate-400 text-[11px] font-black uppercase italic">{fmtTime(a.createdAt)}</td>
+                      <td className="py-6 px-4 text-slate-500 dark:text-slate-500 text-[11px] font-black uppercase italic">{fmtTime(a.createdAt)}</td>
                       <td className="py-6 px-4"><SourcePill source={a.source} /></td>
                       <td className="py-6 px-4"><StatusPill status={a.status} /></td>
                       <td className="py-6 px-6">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
+                            className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
                             onClick={(e) => { e.stopPropagation(); selectAlert(a.id); setDrawerOpen(true); }}
                           >
                             Detalle
