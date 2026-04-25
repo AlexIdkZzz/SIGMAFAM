@@ -72,23 +72,6 @@ function StatChip({ icon: Icon, label, value, color }) {
   );
 }
 
-function generateDemoPoints(centerLat, centerLng) {
-  const pts = [];
-  for (let i = 0; i < 18; i++) {
-    pts.push({ lat: centerLat + (Math.random() - 0.5) * 0.018, lng: centerLng + (Math.random() - 0.5) * 0.018, intensity: 8 + Math.random() * 10 });
-  }
-  for (let i = 0; i < 15; i++) {
-    pts.push({ lat: centerLat + 0.025 + (Math.random() - 0.5) * 0.02, lng: centerLng + 0.03 + (Math.random() - 0.5) * 0.02, intensity: 4 + Math.random() * 6 });
-  }
-  for (let i = 0; i < 12; i++) {
-    pts.push({ lat: centerLat - 0.02 + (Math.random() - 0.5) * 0.02, lng: centerLng - 0.025 + (Math.random() - 0.5) * 0.02, intensity: 3 + Math.random() * 5 });
-  }
-  for (let i = 0; i < 15; i++) {
-    pts.push({ lat: centerLat + (Math.random() - 0.5) * 0.08, lng: centerLng + (Math.random() - 0.5) * 0.08, intensity: 1 + Math.random() * 3 });
-  }
-  return pts;
-}
-
 export default function MapLive() {
   const { alerts, selected, selectAlert, loading, refreshActive } = useAlerts();
   const { token } = useAuth();
@@ -112,22 +95,24 @@ export default function MapLive() {
     try {
       const res = await fetch(`${API_BASE}/heatmap`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
-      if (data.hotspots && data.hotspots.length > 0) {
+      
+      if (data.hotspots) {
         setHeatPoints(data.hotspots);
+        // Sumamos la intensidad real de la DB
         setTotalIncidents(data.hotspots.reduce((s, p) => s + Number(p.intensity), 0));
+        
         const top = data.hotspots[0];
-        if (top) setTopZone(`${Number(top.lat).toFixed(3)}, ${Number(top.lng).toFixed(3)}`);
-      } else {
-        const demo = generateDemoPoints(FALLBACK_CENTER[0], FALLBACK_CENTER[1]);
-        setHeatPoints(demo);
-        setTotalIncidents(Math.round(demo.reduce((s, p) => s + p.intensity, 0)));
-        setTopZone("Zona Centro");
+        if (top) {
+          setTopZone(`${Number(top.lat).toFixed(3)}, ${Number(top.lng).toFixed(3)}`);
+        } else {
+          setTopZone("Sin datos");
+        }
       }
-    } catch (_) {
-      const demo = generateDemoPoints(FALLBACK_CENTER[0], FALLBACK_CENTER[1]);
-      setHeatPoints(demo);
-      setTotalIncidents(Math.round(demo.reduce((s, p) => s + p.intensity, 0)));
-      setTopZone("Zona Centro");
+    } catch (e) {
+      console.error("[Heatmap Error]", e);
+      setHeatPoints([]);
+      setTotalIncidents(0);
+      setTopZone(null);
     } finally {
       setHeatLoading(false);
     }
@@ -139,8 +124,8 @@ export default function MapLive() {
     ? [selected.lastLocation.lat, selected.lastLocation.lng]
     : FALLBACK_CENTER;
 
+  // Cálculos de estadísticas basados SOLO en datos reales
   const maxIntensity = heatPoints.length ? Math.max(...heatPoints.map((p) => Number(p.intensity))) : 1;
-
   const hiCount  = heatPoints.filter((p) => p.intensity >= maxIntensity * 0.6).length;
   const midCount = heatPoints.filter((p) => p.intensity >= maxIntensity * 0.3 && p.intensity < maxIntensity * 0.6).length;
   const loCount  = heatPoints.filter((p) => p.intensity < maxIntensity * 0.3).length;
@@ -190,7 +175,7 @@ export default function MapLive() {
           {mode === "heat" ? (
             <>
               <div className="flex items-center justify-between px-1 shrink-0">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Resumen</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Resumen Real</h3>
               </div>
               <div className="space-y-2 shrink-0">
                 <div className="bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-800 rounded-2xl p-4">
@@ -205,7 +190,7 @@ export default function MapLive() {
                   </div>
                   {topZone && (
                     <div className="bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 rounded-xl p-2.5">
-                      <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-0.5">Zona más activa</p>
+                      <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-0.5">Coordenada más crítica</p>
                       <p className="text-[10px] font-black text-red-600 dark:text-red-400 font-mono break-all">{topZone}</p>
                     </div>
                   )}
@@ -214,19 +199,19 @@ export default function MapLive() {
                 <div className="bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-800 rounded-2xl p-4 space-y-3">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Zonas de incidencia</p>
                   {[
-                    { label: "Alta",  color: "from-red-500 to-red-600",         count: hiCount  },
+                    { label: "Alta",  color: "from-red-500 to-red-600",        count: hiCount  },
                     { label: "Media", color: "from-amber-400 to-orange-500",    count: midCount },
                     { label: "Baja",  color: "from-emerald-400 to-green-500",   count: loCount  },
                   ].map(({ label, color, count }) => (
                     <div key={label}>
                       <div className="flex justify-between text-[9px] font-black text-slate-500 dark:text-slate-400 mb-1">
                         <span>{label}</span>
-                        <span>{count} zonas</span>
+                        <span>{count} puntos</span>
                       </div>
                       <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full bg-gradient-to-r ${color} rounded-full transition-all duration-700`}
-                          style={{ width: `${Math.min(100, (count / total) * 200)}%` }}
+                          style={{ width: `${(count / total) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -236,10 +221,10 @@ export default function MapLive() {
                 <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-blue-900/40 dark:to-slate-900 rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Users size={14} className="text-blue-400" />
-                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Red comunitaria</p>
+                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Red SIGMAFAM</p>
                   </div>
                   <p className="text-[10px] text-slate-400 leading-relaxed">
-                    Los datos se generan de forma anónima con los reportes de toda la comunidad SIGMAFAM.
+                    Mostrando datos reales agrupados por proximidad geográfica (Precisión ~110m).
                   </p>
                 </div>
               </div>
@@ -315,7 +300,7 @@ export default function MapLive() {
               <div className="absolute top-4 left-4 z-[500] pointer-events-none">
                 <div className="flex items-center gap-2 bg-slate-900/85 dark:bg-[#050a18]/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 shadow-xl">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <p className="text-[9px] font-black text-white uppercase tracking-[0.15em]">Mapa de Calor Comunitario</p>
+                  <p className="text-[9px] font-black text-white uppercase tracking-[0.15em]">Heatmap de Datos Reales</p>
                 </div>
               </div>
             )}
