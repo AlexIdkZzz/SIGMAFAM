@@ -223,15 +223,17 @@ export default function MapLive() {
                   ))}
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-blue-900/40 dark:to-slate-900 rounded-2xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users size={14} className="text-blue-400" />
-                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Red SIGMAFAM</p>
-                  </div>
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    Mostrando datos reales agrupados por proximidad geográfica (Precisión ~110m).
-                  </p>
-                </div>
+                <div className="bg-slate-100 dark:bg-blue-900/40 border border-slate-200 dark:border-blue-500/20 rounded-2xl p-4 transition-colors duration-300">
+  <div className="flex items-center gap-2 mb-2">
+    <Users size={14} className="text-blue-600 dark:text-blue-400" />
+    <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+      Red SIGMAFAM
+    </p>
+  </div>
+  <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+    Mostrando datos reales agrupados por proximidad geográfica (Precisión ~110m).
+  </p>
+</div>
               </div>
             </>
           ) : (
