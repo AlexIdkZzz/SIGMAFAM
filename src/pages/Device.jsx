@@ -3,12 +3,13 @@ import { useAuth } from "../app/auth/AuthContext";
 import { 
   Cpu, QrCode as QrIcon, Trash2, RefreshCw, 
   CheckCircle2, Info, AlertCircle, Wifi, 
-  ArrowRight, Loader2, Calendar, HardDrive
+  ArrowRight, Loader2, Calendar, HardDrive, X
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
-// Hook camaleónico solo para la API del QR que requiere colores en string
+// --- COMPONENTES AUXILIARES ---
+
 function useIsDark() {
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
   useEffect(() => {
@@ -29,6 +30,42 @@ const StatusPill = ({ children, active }) => (
   </div>
 );
 
+const ConfirmModal = ({ isOpen, onClose, onConfirm, loading, title, message }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-sm rounded-[32px] p-8 border bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 shadow-2xl transition-all scale-in-center">
+        <div className="flex justify-between items-start mb-6">
+          <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center">
+            <AlertCircle size={24} />
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <h3 className="text-xl font-black tracking-tighter mb-2 uppercase italic text-slate-900 dark:text-white">{title}</h3>
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+          {message}
+        </p>
+        <div className="flex flex-col gap-3">
+          <button 
+            onClick={onConfirm}
+            disabled={loading}
+            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50">
+            {loading ? <Loader2 className="animate-spin" size={16}/> : "Confirmar Desvinculación"}
+          </button>
+          <button 
+            onClick={onClose}
+            disabled={loading}
+            className="w-full py-4 rounded-2xl font-bold text-xs uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function formatDate(dt) {
   if (!dt) return "Nunca";
   return new Date(dt).toLocaleString("es-MX", {
@@ -45,9 +82,11 @@ function QRCodeDisplay({ value, dark }) {
   );
 }
 
+// --- COMPONENTE PRINCIPAL ---
+
 export default function Device() {
   const { token } = useAuth();
-  const isDark = useIsDark(); // Solo lo usamos para el QR
+  const isDark = useIsDark();
 
   const [device, setDevice] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +95,7 @@ export default function Device() {
   const [unlinking, setUnlinking] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [newDevice, setNewDevice] = useState(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const fetchDevice = useCallback(async () => {
     if (!token) return;
@@ -89,8 +129,7 @@ export default function Device() {
     finally { setGenerating(false); }
   }
 
-  async function unlinkDevice() {
-    if (!confirm("¿Desvincular dispositivo?")) return;
+  async function handleUnlink() {
     setUnlinking(true);
     try {
       const res = await fetch(`${API_BASE}/devices/mine`, {
@@ -99,6 +138,7 @@ export default function Device() {
       });
       if (!res.ok) throw new Error("Error al desvincular");
       setDevice(null); setNewDevice(null); setShowQR(false);
+      setIsConfirmOpen(false);
     } catch (e) { setError(e.message); }
     finally { setUnlinking(false); }
   }
@@ -108,7 +148,15 @@ export default function Device() {
   return (
     <div className="min-h-screen p-6 lg:p-10 transition-colors duration-300 bg-slate-50 dark:bg-[#0a0f1e] text-slate-900 dark:text-slate-100">
       
-      {/* Header Estilo Sigmafam */}
+      <ConfirmModal 
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleUnlink}
+        loading={unlinking}
+        title="¿Desvincular Dispositivo?"
+        message="Esta acción interrumpirá la conexión de tu hardware SIGMAFAM. Tendrás que generar una nueva identidad para volver a conectarlo."
+      />
+
       <header className="max-w-5xl mx-auto mb-10">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-900 dark:bg-slate-100">
@@ -135,9 +183,8 @@ export default function Device() {
             <p className="font-bold tracking-widest text-xs uppercase">Sincronizando...</p>
           </div>
         ) : device ? (
-          /* VISTA: DISPOSITIVO VINCULADO */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 rounded-3xl p-8 border transition-all bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200 dark:shadow-none">
+            <div className="lg:col-span-2 rounded-3xl p-8 border transition-all bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 shadow-xl">
               <div className="flex justify-between items-start mb-8">
                 <div>
                   <StatusPill active={true}>En línea</StatusPill>
@@ -165,15 +212,13 @@ export default function Device() {
               </div>
 
               <button 
-                onClick={unlinkDevice}
-                disabled={unlinking}
-                className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-xs transition-all bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-500 dark:hover:bg-red-500/20">
-                {unlinking ? <Loader2 className="animate-spin" size={14}/> : <Trash2 size={14} />}
-                DESVINCULAR DISPOSITIVO
+                onClick={() => setIsConfirmOpen(true)}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-xs transition-all bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-500 dark:hover:bg-red-500/20 active:scale-95">
+                <Trash2 size={14} />
+                {device ? "DESVINCULAR DISPOSITIVO" : "NO VINCULAR DISPOSITIVO"}
               </button>
             </div>
 
-            {/* Instrucciones */}
             <div className="rounded-3xl p-8 transition-all border bg-slate-900 dark:bg-[#0f172a] border-slate-800 shadow-xl">
               <h3 className="text-white font-black tracking-tight mb-6 flex items-center gap-2">
                 <Info size={18} className="text-sky-400" /> GUÍA RÁPIDA
@@ -195,9 +240,8 @@ export default function Device() {
             </div>
           </div>
         ) : showQR && newDevice ? (
-          /* VISTA: QR GENERADO */
           <div className="flex flex-col items-center">
-             <div className="max-w-md w-full rounded-3xl p-10 text-center border transition-all bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl">
+             <div className="max-w-md w-full rounded-3xl p-10 text-center border transition-all bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 shadow-xl">
                 <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <CheckCircle2 size={32} />
                 </div>
@@ -215,27 +259,33 @@ export default function Device() {
 
                 <button 
                   onClick={() => setShowQR(false)}
-                  className="w-full mt-8 py-4 rounded-xl font-black text-xs tracking-widest uppercase transition-all bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
+                  className="w-full mt-8 py-4 rounded-xl font-black text-xs tracking-widest uppercase transition-all bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white active:scale-95">
                   Finalizar Configuración
                 </button>
              </div>
           </div>
         ) : (
-          /* VISTA: SIN DISPOSITIVO (ESTADO INICIAL) */
-          <div className="rounded-[32px] p-12 text-center border transition-all bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 shadow-2xl shadow-slate-200 dark:shadow-none">
+          <div className="rounded-[32px] p-12 text-center border transition-all bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 shadow-2xl">
              <div className="w-20 h-20 rounded-[24px] flex items-center justify-center mx-auto mb-8 bg-slate-100 dark:bg-slate-800">
                <QrIcon size={40} className="text-slate-500 dark:text-slate-400" />
              </div>
-             <h2 className="text-3xl font-black tracking-tighter mb-4">SIN DISPOSITIVO</h2>
+             <h2 className="text-3xl font-black tracking-tighter mb-4 uppercase italic">Sin dispositivo</h2>
              <p className="max-w-sm mx-auto text-sm font-medium leading-relaxed mb-10 text-slate-500 dark:text-slate-400">
                Aún no has vinculado tu hardware SIGMAFAM. Genera un código de identidad para comenzar.
              </p>
-             <button 
-               onClick={generateDevice}
-               disabled={generating}
-               className="group flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black text-sm tracking-tight transition-all active:scale-95 bg-slate-900 text-white shadow-xl shadow-slate-200 dark:shadow-none dark:bg-white dark:text-slate-900 hover:dark:shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-               {generating ? <Loader2 className="animate-spin" /> : <>GENERAR IDENTIDAD <ArrowRight className="group-hover:translate-x-1 transition-transform" size={18} /></>}
-             </button>
+             <div className="flex flex-col items-center gap-4">
+                <button 
+                  onClick={generateDevice}
+                  disabled={generating}
+                  className="group flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black text-sm tracking-tight transition-all active:scale-95 bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:shadow-xl">
+                  {generating ? <Loader2 className="animate-spin" /> : <>GENERAR IDENTIDAD <ArrowRight className="group-hover:translate-x-1 transition-transform" size={18} /></>}
+                </button>
+                <button 
+                  className="text-[10px] font-black text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest"
+                  onClick={() => setError("No hay ningún dispositivo para desvincular.")}>
+                  No vincular dispositivo
+                </button>
+             </div>
           </div>
         )}
       </main>
