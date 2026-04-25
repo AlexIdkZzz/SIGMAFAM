@@ -1111,6 +1111,35 @@ app.post("/api/v1/family/regenerate-code", authRequired, async (req, res) => {
   }
 });
 
+app.delete("/api/v1/family", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [rows] = await pool.execute(
+      `SELECT role, family_group_id FROM users WHERE id = :userId LIMIT 1`,
+      { userId }
+    );
+    const u = rows[0];
+    if (u?.role !== "JEFE_FAMILIA")
+      return res.status(403).json({ error: "FORBIDDEN" });
+
+    const groupId = u.family_group_id;
+
+    await pool.execute(
+      `UPDATE users SET role = 'JEFE_FAMILIA', family_group_id = NULL WHERE family_group_id = :groupId`,
+      { groupId }
+    );
+    await pool.execute(`DELETE FROM family_groups WHERE id = :groupId`, { groupId });
+
+    await auditLog("FAMILY_DISSOLVE", userId, `Grupo familiar #${groupId} disuelto`);
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Family/Dissolve]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 /* ═══════════════════════════ CONTACTOS DE EMERGENCIA ═══════════════════════════ */
 
 /**
