@@ -7,11 +7,11 @@ import {
 
 export default function AdminUsers() {
   const { apiFetch } = useAdminFetch();
-  const [users, setUsers]   = useState([]);
+  const [users, setUsers]     = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState("");
-  const [search, setSearch] = useState("");
-  const [modal, setModal]   = useState(null);
+  const [error, setError]     = useState("");
+  const [search, setSearch]   = useState("");
+  const [modal, setModal]     = useState(null);
 
   function load() {
     setLoading(true);
@@ -50,45 +50,45 @@ export default function AdminUsers() {
       <SectionCard title="Usuarios" count={filtered.length}>
         <SearchBar value={search} onChange={setSearch} placeholder="Buscar por nombre, email o rol..." />
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[650px] text-[13px]">
-          <TableHead cols={["Usuario", "Rol", "Grupo", "Verificado", "Registrado", "Acciones"]} />
-          <tbody>
-            {loading ? <LoadingRows cols={6} /> :
-             error   ? <ErrorRow cols={6} message={error} /> :
-             filtered.length === 0 ? (
-              <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">Sin resultados</td></tr>
-            ) : filtered.map((u) => (
-              <tr key={u.id} className="hover:bg-slate-50 border-b border-slate-50 last:border-0">
-                <td className="px-5 py-2.5">
-                  <span className="flex items-center gap-2">
-                    <Avatar name={u.full_name} />
-                    <span>
-                      <div className="font-medium">{u.full_name}</div>
-                      <div className="text-[11px] text-slate-400">{u.email}</div>
+          <table className="w-full min-w-[650px] text-[13px]">
+            <TableHead cols={["Usuario", "Rol", "Grupo", "Verificado", "Registrado", "Acciones"]} />
+            <tbody>
+              {loading ? <LoadingRows cols={6} /> :
+               error   ? <ErrorRow cols={6} message={error} /> :
+               filtered.length === 0 ? (
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 dark:text-slate-500 text-sm">Sin resultados</td></tr>
+              ) : filtered.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-50 dark:border-slate-800 last:border-0">
+                  <td className="px-5 py-2.5">
+                    <span className="flex items-center gap-2">
+                      <Avatar name={u.full_name} />
+                      <span>
+                        <div className="font-medium text-slate-900 dark:text-slate-100">{u.full_name}</div>
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500">{u.email}</div>
+                      </span>
                     </span>
-                  </span>
-                </td>
-                <td className="px-5 py-2.5">
-                  <Badge className={roleBadgeClass(u.role)}>{u.role}</Badge>
-                </td>
-                <td className="px-5 py-2.5 text-slate-500 text-xs">{u.group_name ?? "Sin grupo"}</td>
-                <td className="px-5 py-2.5">
-                  <Badge className={u.verified ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}>
-                    {u.verified ? "Sí" : "No"}
-                  </Badge>
-                </td>
-                <td className="px-5 py-2.5 text-xs text-slate-400">{formatDate(u.created_at)}</td>
-                <td className="px-5 py-2.5">
-                  <ActionBtn onClick={() => setModal({ type: "edit", user: { ...u } })}>Editar</ActionBtn>
-                  <ActionBtn onClick={() => setModal({ type: "pwd", user: u })}>Reset pwd</ActionBtn>
-                  {u.role !== "ADMIN" && (
-                    <ActionBtn variant="danger" onClick={() => setModal({ type: "delete", user: u })}>Eliminar</ActionBtn>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                  <td className="px-5 py-2.5">
+                    <Badge className={roleBadgeClass(u.role)}>{u.role}</Badge>
+                  </td>
+                  <td className="px-5 py-2.5 text-slate-500 dark:text-slate-400 text-xs">{u.group_name ?? "Sin grupo"}</td>
+                  <td className="px-5 py-2.5">
+                    <Badge className={u.verified ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}>
+                      {u.verified ? "Sí" : "No"}
+                    </Badge>
+                  </td>
+                  <td className="px-5 py-2.5 text-xs text-slate-400 dark:text-slate-500">{formatDate(u.created_at)}</td>
+                  <td className="px-5 py-2.5">
+                    <ActionBtn onClick={() => setModal({ type: "edit", user: { ...u } })}>Editar</ActionBtn>
+                    <ActionBtn onClick={() => setModal({ type: "pwd", user: u })}>Reset pwd</ActionBtn>
+                    {u.role !== "ADMIN" && (
+                      <ActionBtn variant="danger" onClick={() => setModal({ type: "delete", user: u })}>Eliminar</ActionBtn>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </SectionCard>
 
@@ -101,9 +101,9 @@ export default function AdminUsers() {
       {modal?.type === "delete" && (
         <Modal title="Confirmar eliminación" onClose={() => setModal(null)}
           footer={<><BtnSecondary onClick={() => setModal(null)}>Cancelar</BtnSecondary><BtnPrimary onClick={() => handleDelete(modal.user.id)}>Eliminar</BtnPrimary></>}>
-          <p className="text-sm text-slate-600 mb-2">¿Seguro que quieres eliminar este usuario?</p>
-          <p className="text-sm font-medium">{modal.user.full_name}</p>
-          <p className="text-xs text-slate-400 mt-2">Esta acción no se puede deshacer.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">¿Seguro que quieres eliminar este usuario?</p>
+          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{modal.user.full_name}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Esta acción no se puede deshacer.</p>
         </Modal>
       )}
     </>
@@ -125,7 +125,7 @@ function EditUserModal({ user, onSave, onClose }) {
   return (
     <Modal title="Editar usuario" onClose={onClose}
       footer={<><BtnSecondary onClick={onClose}>Cancelar</BtnSecondary><BtnPrimary variant="default" onClick={handleSubmit} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</BtnPrimary></>}>
-      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+      {error && <p className="text-xs text-red-500 dark:text-red-400 mb-3">{error}</p>}
       <ModalField label="Nombre"><InputField value={form.full_name} onChange={set("full_name")} /></ModalField>
       <ModalField label="Rol">
         <SelectField value={form.role} onChange={set("role")}>
@@ -157,13 +157,13 @@ function ResetPwdModal({ user, onSave, onClose }) {
     <Modal title="Resetear contraseña" onClose={onClose}
       footer={done ? <BtnPrimary variant="default" onClick={onClose}>Listo</BtnPrimary> :
         <><BtnSecondary onClick={onClose}>Cancelar</BtnSecondary><BtnPrimary variant="default" onClick={handleSubmit} disabled={saving}>{saving ? "Guardando..." : "Confirmar"}</BtnPrimary></>}>
-      {done ? <p className="text-sm text-emerald-600 font-medium">Contraseña actualizada correctamente.</p> : (
+      {done ? <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Contraseña actualizada correctamente.</p> : (
         <>
-          <p className="text-sm text-slate-500 mb-4">Nueva contraseña para <span className="font-medium text-slate-700">{user.full_name}</span></p>
-          {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Nueva contraseña para <span className="font-medium text-slate-700 dark:text-slate-200">{user.full_name}</span></p>
+          {error && <p className="text-xs text-red-500 dark:text-red-400 mb-3">{error}</p>}
           <ModalField label="Nueva contraseña"><InputField type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="Mín. 6 caracteres" /></ModalField>
           <ModalField label="Confirmar contraseña"><InputField type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></ModalField>
-          {mismatch && <p className="text-xs text-red-500 -mt-2">Las contraseñas no coinciden.</p>}
+          {mismatch && <p className="text-xs text-red-500 dark:text-red-400 -mt-2">Las contraseñas no coinciden.</p>}
         </>
       )}
     </Modal>
