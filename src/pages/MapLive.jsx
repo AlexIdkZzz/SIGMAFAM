@@ -98,7 +98,6 @@ export default function MapLive() {
       
       if (data.hotspots) {
         setHeatPoints(data.hotspots);
-        // Sumamos la intensidad real de la DB
         setTotalIncidents(data.hotspots.reduce((s, p) => s + Number(p.intensity), 0));
         
         const top = data.hotspots[0];
@@ -124,12 +123,18 @@ export default function MapLive() {
     ? [selected.lastLocation.lat, selected.lastLocation.lng]
     : FALLBACK_CENTER;
 
-  // Cálculos de estadísticas basados SOLO en datos reales
-  const maxIntensity = heatPoints.length ? Math.max(...heatPoints.map((p) => Number(p.intensity))) : 1;
-  const hiCount  = heatPoints.filter((p) => p.intensity >= maxIntensity * 0.6).length;
-  const midCount = heatPoints.filter((p) => p.intensity >= maxIntensity * 0.3 && p.intensity < maxIntensity * 0.6).length;
-  const loCount  = heatPoints.filter((p) => p.intensity < maxIntensity * 0.3).length;
+  // --- LÓGICA DE INTENSIDAD CORREGIDA ---
+  // Si el máximo detectado es menor a 5 (como en tus puntos aleatorios), 
+  // usamos 5 como referencia para que no todo salga como "Alta".
+  const maxIntensity = heatPoints.length 
+    ? Math.max(Math.max(...heatPoints.map((p) => Number(p.intensity))), 5) 
+    : 5;
+
+  const hiCount  = heatPoints.filter((p) => Number(p.intensity) >= maxIntensity * 0.7).length;
+  const midCount = heatPoints.filter((p) => Number(p.intensity) >= maxIntensity * 0.3 && Number(p.intensity) < maxIntensity * 0.7).length;
+  const loCount  = heatPoints.filter((p) => Number(p.intensity) < maxIntensity * 0.3).length;
   const total    = Math.max(heatPoints.length, 1);
+  // ---------------------------------------
 
   return (
     <PageShell
