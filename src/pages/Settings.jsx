@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/auth/AuthContext";
-import { useTheme } from "../app/theme/ThemeContext";
 import {
-  Sun, Moon, Lock, LogOut, Eye, EyeOff,
+  Lock, LogOut, Eye, EyeOff,
   CheckCircle2, AlertCircle, ChevronRight, Shield,
 } from "lucide-react";
 
@@ -12,14 +11,13 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1";
 /* ─── Componente: sección contenedor ─── */
 function Section({ icon: Icon, title, subtitle, children, accent = "sky" }) {
   const accents = {
-    sky:     "bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400",
-    violet:  "bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400",
-    red:     "bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400",
+    sky:    "bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400",
+    violet: "bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400",
+    red:    "bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400",
   }[accent];
 
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f1628] overflow-hidden">
-      {/* Encabezado de sección */}
       <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${accents}`}>
           <Icon size={17} />
@@ -29,7 +27,6 @@ function Section({ icon: Icon, title, subtitle, children, accent = "sky" }) {
           {subtitle && <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5">{subtitle}</p>}
         </div>
       </div>
-      {/* Contenido */}
       <div className="px-5 py-4">{children}</div>
     </div>
   );
@@ -74,31 +71,21 @@ function InlineAlert({ type, message }) {
         ? "bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30"
         : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30"
     }`}>
-      {isError
-        ? <AlertCircle size={15} className="flex-shrink-0" />
-        : <CheckCircle2 size={15} className="flex-shrink-0" />}
+      {isError ? <AlertCircle size={15} /> : <CheckCircle2 size={15} />}
       {message}
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════ */
-/*  PÁGINA PRINCIPAL                                           */
-/* ═══════════════════════════════════════════════════════════ */
 export default function Settings() {
   const { user, token, logout } = useAuth();
-  const { dark, toggle } = useTheme();
   const navigate = useNavigate();
 
-  /* ── Estado: cambio de contraseña ── */
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwStatus, setPwStatus] = useState({ type: null, msg: "" });
   const [pwLoading, setPwLoading] = useState(false);
-
-  /* ── Estado: cerrar sesión ── */
   const [confirmLogout, setConfirmLogout] = useState(false);
 
-  /* ── Handler: cambiar contraseña ── */
   async function handleChangePassword(e) {
     e.preventDefault();
     setPwStatus({ type: null, msg: "" });
@@ -146,16 +133,13 @@ export default function Settings() {
     }
   }
 
-  /* ── Handler: cerrar sesión ── */
   function handleLogout() {
     logout();
     navigate("/login", { replace: true });
   }
 
-  /* ─────────────────────────── RENDER ─────────────────────────── */
   return (
     <div className="space-y-5">
-
       {/* ── Cabecera ── */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center shadow-md flex-shrink-0">
@@ -172,116 +156,9 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* ── Grid: 2 columnas en desktop, 1 en móvil ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-
-        {/* ── Columna izquierda ── */}
+        {/* ── Columna izquierda: Seguridad ── */}
         <div className="flex flex-col gap-5">
-
-          {/* ══════════ SECCIÓN 1 — Tema ══════════ */}
-          <Section icon={dark ? Moon : Sun} title="Apariencia" subtitle="Cambia el tema visual de la aplicación" accent="violet">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  Tema {dark ? "oscuro" : "claro"}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
-                  {dark
-                    ? "Modo oscuro activo — ideal para ambientes con poca luz."
-                    : "Modo claro activo — ideal para uso diurno."}
-                </p>
-              </div>
-
-              {/* Toggle switch */}
-              <button
-                onClick={toggle}
-                aria-label="Cambiar tema"
-                className={`relative flex-shrink-0 w-14 h-7 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 dark:focus:ring-offset-slate-900 ${
-                  dark ? "bg-violet-600" : "bg-slate-200"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300 flex items-center justify-center ${
-                    dark ? "translate-x-7" : "translate-x-0"
-                  }`}
-                >
-                  {dark
-                    ? <Moon size={12} className="text-violet-600" />
-                    : <Sun size={12} className="text-slate-400" />}
-                </span>
-              </button>
-            </div>
-
-            {/* Botones de selección rápida */}
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              <button
-                onClick={() => !dark || toggle()}
-                className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                  !dark
-                    ? "border-slate-900 bg-slate-900 text-white shadow-md"
-                    : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                }`}
-              >
-                <Sun size={15} />
-                Claro
-              </button>
-              <button
-                onClick={() => dark || toggle()}
-                className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                  dark
-                    ? "border-violet-600 bg-violet-600 text-white shadow-md"
-                    : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                }`}
-              >
-                <Moon size={15} />
-                Oscuro
-              </button>
-            </div>
-          </Section>
-
-          {/* ══════════ SECCIÓN 3 — Cerrar sesión ══════════ */}
-          <Section icon={LogOut} title="Sesión" subtitle="Cierra tu sesión en este dispositivo" accent="red">
-            {!confirmLogout ? (
-              <button
-                onClick={() => setConfirmLogout(true)}
-                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-500/40 hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-700 dark:text-slate-300 hover:text-red-700 dark:hover:text-red-400 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <LogOut size={16} className="text-slate-400 group-hover:text-red-500 transition-colors" />
-                  <span className="text-sm font-medium">Cerrar sesión</span>
-                </div>
-                <ChevronRight size={15} className="text-slate-300 dark:text-slate-600 group-hover:text-red-400 transition-colors" />
-              </button>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <p className="text-sm text-slate-700 dark:text-slate-300">
-                  ¿Seguro que quieres cerrar sesión?
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-all shadow-sm"
-                  >
-                    <LogOut size={14} />
-                    Sí, cerrar sesión
-                  </button>
-                  <button
-                    onClick={() => setConfirmLogout(false)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            )}
-          </Section>
-
-        </div>
-
-        {/* ── Columna derecha ── */}
-        <div>
-
-          {/* ══════════ SECCIÓN 2 — Contraseña ══════════ */}
           <Section icon={Lock} title="Cambiar contraseña" subtitle="Elige una contraseña segura de al menos 6 caracteres" accent="sky">
             <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
               <PasswordField
@@ -326,9 +203,46 @@ export default function Settings() {
               </div>
             </form>
           </Section>
-
         </div>
 
+        {/* ── Columna derecha: Sesión ── */}
+        <div className="flex flex-col gap-5">
+          <Section icon={LogOut} title="Sesión" subtitle="Cierra tu sesión en este dispositivo" accent="red">
+            {!confirmLogout ? (
+              <button
+                onClick={() => setConfirmLogout(true)}
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-500/40 hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-700 dark:text-slate-300 hover:text-red-700 dark:hover:text-red-400 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <LogOut size={16} className="text-slate-400 group-hover:text-red-500 transition-colors" />
+                  <span className="text-sm font-medium">Cerrar sesión</span>
+                </div>
+                <ChevronRight size={15} className="text-slate-300 dark:text-slate-600 group-hover:text-red-400 transition-colors" />
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-slate-700 dark:text-slate-300">
+                  ¿Seguro que quieres cerrar sesión?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-all shadow-sm"
+                  >
+                    <LogOut size={14} />
+                    Sí, cerrar sesión
+                  </button>
+                  <button
+                    onClick={() => setConfirmLogout(false)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </Section>
+        </div>
       </div>
     </div>
   );
