@@ -210,9 +210,8 @@ export default function Family() {
     </PageShell>
   );
 
-  // Buscamos tu rol directamente de los datos frescos de la BD para sobreescribir el token desactualizado
-  const myMemberData = group.members.find(m => m.id === user?.id);
-  const isJefe = myMemberData?.role === "JEFE_FAMILIA" || user?.role === "JEFE_FAMILIA";
+  // Forzamos el rol leyendo el owner_id fresco de la base de datos, ignorando el token viejo
+  const isJefe = String(group.owner_id) === String(user?.id) || user?.role === "JEFE_FAMILIA";
 
   return (
     <PageShell
@@ -253,17 +252,17 @@ export default function Family() {
               </p>
               <div className="py-8 bg-slate-50 dark:bg-[#050a18] rounded-[32px] border border-dashed border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all">
                 <span className="font-mono text-4xl font-black tracking-[0.2em] text-slate-900 dark:text-white">
-                  {group.invite_code || "--------"}
+                  {isJefe ? (group.invite_code || "--------") : "OCULTO"}
                 </span>
               </div>
               <Button
                 onClick={async () => {
-                  if (!group.invite_code) return; // Candado de seguridad para no copiar null
+                  if (!group.invite_code) return; 
                   await navigator.clipboard.writeText(group.invite_code);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
-                disabled={!group.invite_code}
+                disabled={!isJefe || !group.invite_code}
                 className={`w-full py-5 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all text-white ${
                   copied
                     ? "bg-emerald-600 shadow-lg shadow-emerald-500/20"

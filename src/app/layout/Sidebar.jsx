@@ -17,7 +17,9 @@ const nav = [
 export default function Sidebar({ onNavigate }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const role = user?.role;
+  
+  // Aseguramos que el rol siempre se lea en mayúsculas para evitar fallos lógicos
+  const role = user?.role?.toUpperCase();
 
   return (
     <aside className="h-full bg-slate-900 text-white border-r border-slate-800 p-3 overflow-auto flex flex-col">
