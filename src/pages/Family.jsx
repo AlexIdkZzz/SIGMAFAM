@@ -210,7 +210,9 @@ export default function Family() {
     </PageShell>
   );
 
-  const isJefe = user?.role === "JEFE_FAMILIA";
+  // Buscamos tu rol directamente de los datos frescos de la BD para sobreescribir el token desactualizado
+  const myMemberData = group.members.find(m => m.id === user?.id);
+  const isJefe = myMemberData?.role === "JEFE_FAMILIA" || user?.role === "JEFE_FAMILIA";
 
   return (
     <PageShell
@@ -256,10 +258,12 @@ export default function Family() {
               </div>
               <Button
                 onClick={async () => {
+                  if (!group.invite_code) return; // Candado de seguridad para no copiar null
                   await navigator.clipboard.writeText(group.invite_code);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
+                disabled={!group.invite_code}
                 className={`w-full py-5 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all text-white ${
                   copied
                     ? "bg-emerald-600 shadow-lg shadow-emerald-500/20"
@@ -322,7 +326,7 @@ export default function Family() {
                         {isJefe && m.role !== "JEFE_FAMILIA" && (
                           <button
                             onClick={() => {
-                              if (confirm("¿ELIMINAR MIEMBRO?")) console.log("delete");
+                              if (window.confirm("¿ELIMINAR MIEMBRO?")) console.log("delete");
                             }}
                             className="p-3 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
                           >

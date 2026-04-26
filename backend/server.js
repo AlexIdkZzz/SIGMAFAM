@@ -954,45 +954,48 @@ app.post("/api/v1/family/create", authRequired, async (req, res) => {
   }
 });
 
-app.post("/api/v1/family/join", authRequired, async (req, res) => {
+app.get("/api/v1/family", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { invite_code } = req.body || {};
-    if (!invite_code?.trim()) return res.status(400).json({ error: "MISSING_FIELDS" });
 
     const [userRows] = await pool.execute(
-      `SELECT family_group_id FROM users WHERE id = :userId LIMIT 1`,
+      `SELECT family_group_id, role FROM users WHERE id = :userId LIMIT 1`,
       { userId }
     );
-    if (userRows[0]?.family_group_id)
-      return res.status(409).json({ error: "ALREADY_IN_GROUP" });
+    const u = userRows[0];
+    if (!u?.family_group_id)
+      return res.json({ group: null });
 
     const [groupRows] = await pool.execute(
-      `SELECT id, name FROM family_groups WHERE invite_code = :invite_code LIMIT 1`,
-      { invite_code: invite_code.trim().toUpperCase() }
+      `SELECT id, name, invite_code, created_at, owner_id FROM family_groups WHERE id = :id LIMIT 1`,
+      { id: u.family_group_id }
     );
-    if (!groupRows.length)
-      return res.status(404).json({ error: "INVALID_CODE" });
-
     const group = groupRows[0];
 
-    const [countRows] = await pool.execute(
-      `SELECT COUNT(*) AS total FROM users WHERE family_group_id = :groupId`,
+    const [members] = await pool.execute(
+      `SELECT id, full_name, email, role, created_at
+       FROM users WHERE family_group_id = :groupId ORDER BY created_at ASC`,
       { groupId: group.id }
     );
-    if (Number(countRows[0].total) >= 6)
-      return res.status(409).json({ error: "GROUP_FULL" });
 
-    await pool.execute(
-      `UPDATE users SET role = 'MIEMBRO', family_group_id = :groupId WHERE id = :userId`,
-      { groupId: group.id, userId }
-    );
-
-    await auditLog("FAMILY_JOIN", userId, `Se unió al grupo: ${group.name}`, { groupId: group.id });
-
-    return res.json({ ok: true, group_name: group.name });
+    return res.json({
+      group: {
+        id:          group.id,
+        name:        group.name,
+        // Damos el código si el token dice Jefe, o si el usuario es el dueño creador del grupo (owner_id)
+        invite_code: (u.role === "JEFE_FAMILIA" || group.owner_id === userId) ? group.invite_code : null,
+        created_at:  group.created_at,
+        members:     members.map((m) => ({
+          id:        m.id,
+          fullName:  m.full_name,
+          email:     m.email,
+          role:      m.role,
+          joinedAt:  m.created_at,
+        })),
+      },
+    });
   } catch (e) {
-    console.error("[Family/Join]", e);
+    console.error("[Family/Get]", e);
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
