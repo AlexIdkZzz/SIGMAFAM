@@ -12,7 +12,6 @@ const nav = [
   { to: "/app/contacts",  label: "Contactos",    roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/device",    label: "Dispositivo",  roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/audit",     label: "Auditoría",    roles: ["ADMIN"] },
-  { to: "/app/settings",  label: "Ajustes",      roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
 ];
 
 export default function Sidebar({ onNavigate }) {
@@ -50,7 +49,7 @@ export default function Sidebar({ onNavigate }) {
       </div>
 
       <div className="mt-4 px-3 py-2 text-xs text-slate-500 leading-relaxed">
-        <div>Trabajo académico CETI Tonalá 2025</div>
+        <div>Trabajo académico CETI Tonalá 2026</div>
         <div>Yael De Alba 21300160</div>
         <div>Francisco Yañez 22300208</div>
         <div>Uziel Noriega 22300232</div>
