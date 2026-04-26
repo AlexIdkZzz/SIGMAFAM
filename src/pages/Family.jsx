@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Users, UserPlus, Shield, RefreshCw,
-  UserMinus, Calendar, Loader2, AlertCircle,
+  UserMinus, Calendar, Loader2, AlertCircle, ArrowLeft
 } from "lucide-react";
 import { PageShell, Card, Button } from "./_ui";
 import { useAuth } from "../app/auth/AuthContext";
@@ -161,6 +162,7 @@ function NoGroup({ token, onRefresh }) {
 // ── Family ───────────────────────────────────────────────────────────
 export default function Family() {
   const { token, user }   = useAuth();
+  const navigate          = useNavigate();
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied]   = useState(false);
@@ -192,7 +194,18 @@ export default function Family() {
   );
 
   if (!group) return (
-    <PageShell title="Familia" subtitle="GESTIÓN DE GRUPO">
+    <PageShell 
+      title="Familia" 
+      subtitle="GESTIÓN DE GRUPO"
+      right={
+        <button
+          onClick={() => navigate("/app/dashboard")}
+          className="flex items-center gap-2 p-3 bg-white dark:bg-[#0d1426] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition-all text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 active:scale-95 shadow-sm text-[10px] font-black uppercase tracking-widest"
+        >
+          <ArrowLeft size={16} /> <span className="hidden sm:inline">Dashboard</span>
+        </button>
+      }
+    >
       <NoGroup token={token} onRefresh={fetchGroup} />
     </PageShell>
   );
@@ -208,12 +221,20 @@ export default function Family() {
         </span>
       }
       right={
-        <button
-          onClick={fetchGroup}
-          className="p-3 bg-white dark:bg-[#0d1426] hover:bg-slate-50 dark:hover:bg-blue-600/10 rounded-2xl transition-all text-blue-600 border border-slate-200 dark:border-slate-800 active:scale-95 shadow-sm"
-        >
-          <RefreshCw size={18} />
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate("/app/dashboard")}
+            className="flex items-center gap-2 p-3 bg-white dark:bg-[#0d1426] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition-all text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 active:scale-95 shadow-sm text-[10px] font-black uppercase tracking-widest"
+          >
+            <ArrowLeft size={16} /> <span className="hidden sm:inline">Dashboard</span>
+          </button>
+          <button
+            onClick={fetchGroup}
+            className="p-3 bg-white dark:bg-[#0d1426] hover:bg-slate-50 dark:hover:bg-blue-600/10 rounded-2xl transition-all text-blue-600 border border-slate-200 dark:border-slate-800 active:scale-95 shadow-sm"
+          >
+            <RefreshCw size={18} />
+          </button>
+        </div>
       }
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
