@@ -260,7 +260,7 @@ export default function Stats() {
           {data.hotspots?.length === 0 ? (
             <div className="text-sm text-slate-400 text-center py-8">Sin ubicaciones registradas aún.</div>
           ) : (
-            <div className="h-[420px] rounded-xl overflow-hidden border border-slate-100">
+            <div className="h-[75vh] md:h-[420px] rounded-xl overflow-hidden border border-slate-100">
               <MapContainer center={mapCenter} zoom={13} className="h-full w-full">
                 <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {(data.hotspots ?? []).map((h, i) => (

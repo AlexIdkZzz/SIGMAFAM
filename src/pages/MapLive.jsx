@@ -42,7 +42,7 @@ export default function MapLive() {
         {/* MAPA */}
         <div className="lg:col-span-2">
           <Card title="Mapa (OpenStreetMap)">
-            <div className="h-[520px] rounded-2xl overflow-hidden border border-slate-200">
+            <div className="h-[75vh] lg:h-[520px] rounded-2xl overflow-hidden border border-slate-200">
               <MapContainer center={center} zoom={15} className="h-full w-full">
                 <TileLayer
                   attribution="&copy; OpenStreetMap"

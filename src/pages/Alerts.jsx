@@ -45,15 +45,7 @@ export default function Alerts() {
       title="Alertas"
       subtitle={`Alertas activas y recientes · Activas: ${activeCount}`}
       right={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={refreshActive} disabled={loading}>
-            {loading ? "Cargando…" : "Actualizar"}
-          </Button>
-          <Button variant="outline" onClick={() => setDrawerOpen((v) => !v)}>
-            {drawerOpen ? "Ocultar detalle" : "Ver detalle"}
-          </Button>
-          <Button onClick={simulateIncomingAlert}>Simular alerta</Button>
-        </div>
+        <Button onClick={simulateIncomingAlert}>Simular alerta</Button>
       }
     >
       {/* Error banner */}
