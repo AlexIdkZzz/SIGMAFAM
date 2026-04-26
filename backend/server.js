@@ -963,8 +963,7 @@ app.get("/api/v1/family", authRequired, async (req, res) => {
       { userId }
     );
     const u = userRows[0];
-    if (!u?.family_group_id)
-      return res.json({ group: null });
+    if (!u?.family_group_id) return res.json({ group: null });
 
     const [groupRows] = await pool.execute(
       `SELECT id, name, invite_code, created_at, owner_id FROM family_groups WHERE id = :id LIMIT 1`,
@@ -982,8 +981,8 @@ app.get("/api/v1/family", authRequired, async (req, res) => {
       group: {
         id:          group.id,
         name:        group.name,
-        // Damos el código si el token dice Jefe, o si el usuario es el dueño creador del grupo (owner_id)
-        invite_code: (u.role === "JEFE_FAMILIA" || group.owner_id === userId) ? group.invite_code : null,
+        invite_code: group.invite_code, // <-- MANDAMOS EL CÓDIGO SIEMPRE
+        owner_id:    group.owner_id,    // <-- MANDAMOS QUIÉN LO CREÓ
         created_at:  group.created_at,
         members:     members.map((m) => ({
           id:        m.id,
