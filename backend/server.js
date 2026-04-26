@@ -1578,20 +1578,15 @@ app.put("/api/v1/user/change-password", authRequired, async (req, res) => {
 
 /* ═══════════════════════════ HEATMAP COMUNITARIO ═══════════════════════════ */
 
-/**
- * GET /api/v1/heatmap
- * Devuelve puntos de calor de TODA la comunidad (anonimizados).
- * Usado para el mapa de calor de zonas de mayor incidencia.
- */
 app.get("/api/v1/heatmap", authRequired, async (req, res) => {
   try {
     const [hotspots] = await pool.execute(
-      `SELECT
-         ROUND(al.lat, 3) AS lat,
-         ROUND(al.lng, 3) AS lng,
+      `SELECT 
+         ROUND(al.lat, 3) AS lat, 
+         ROUND(al.lng, 3) AS lng, 
          COUNT(*) AS intensity
        FROM alert_locations al
-       JOIN alerts a ON a.id = al.alert_id
+       -- Quitamos el JOIN con alerts para que lea TODO lo que hay en la tabla
        GROUP BY ROUND(al.lat, 3), ROUND(al.lng, 3)
        ORDER BY intensity DESC
        LIMIT 500`
