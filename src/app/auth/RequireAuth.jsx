@@ -5,9 +5,8 @@ import { useAuth } from "./AuthContext";
 /**
  * Protege rutas autenticadas.
  * - Sin allowRoles: solo requiere estar logueado.
- * - Con allowRoles: además valida que user.role esté en la lista.
- *   Si el usuario no tiene role asignado, se le permite pasar
- *   para no bloquear mientras el backend no implemente roles completos.
+ * - Con allowRoles: valida estrictamente que user.role esté en la lista.
+ *   Si el usuario no tiene rol asignado (null), se le deniega el acceso.
  */
 export default function RequireAuth({ children, allowRoles }) {
   const { user, loading } = useAuth();
@@ -27,8 +26,8 @@ export default function RequireAuth({ children, allowRoles }) {
   // No autenticado → login
   if (!user) return <Navigate to="/login" replace />;
 
-  // Si se requiere rol y el usuario tiene rol asignado, validar
-  if (allowRoles && user.role && !allowRoles.includes(user.role)) {
+  // Si se requiere rol, validar estrictamente (sin rol asignado = denegado)
+  if (allowRoles && !allowRoles.includes(user.role)) {
     return (
       <div className="p-6">
         <div className="max-w-lg bg-white border border-slate-200 rounded-2xl p-4">
