@@ -47,7 +47,8 @@ function generateCode() {
 }
 
 function generateInviteCode() {
-  return crypto.randomBytes(4).toString("hex").toUpperCase();
+  // Genera un código aleatorio de exactamente 8 dígitos numéricos
+  return Math.floor(10000000 + Math.random() * 90000000).toString();
 }
 
 /**
@@ -928,6 +929,7 @@ app.post("/api/v1/family/create", authRequired, async (req, res) => {
     if (existing.length)
       return res.status(409).json({ error: "ALREADY_IN_GROUP" });
 
+    // Aquí manda llamar a nuestra nueva función de 8 dígitos
     const invite_code = generateInviteCode();
 
     const [ins] = await pool.execute(
@@ -944,6 +946,7 @@ app.post("/api/v1/family/create", authRequired, async (req, res) => {
 
     await auditLog("FAMILY_CREATE", userId, `Grupo familiar creado: ${name}`, { groupId, invite_code });
 
+    // Retorna el código al frontend para que lo muestre inmediatamente
     return res.status(201).json({ ok: true, group_id: groupId, invite_code });
   } catch (e) {
     console.error("[Family/Create]", e);
