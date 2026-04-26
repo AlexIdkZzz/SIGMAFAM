@@ -25,7 +25,7 @@ function SourcePill({ source }) {
 }
 
 export default function Alerts() {
-  const nav = useNavigate();
+  const nav = useNavigate(); // ✅ fuera del .map()
   const {
     alerts, selected, selectedId,
     loading, error,

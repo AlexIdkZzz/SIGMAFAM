@@ -20,7 +20,14 @@ const STATUS_THEME = {
   CLOSED:   { color: "#10b981", text: "text-emerald-600 dark:text-emerald-400" },
 };
 
-function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
+const STATUS_LABEL = {
+  RECEIVED: "Recibida",
+  ACTIVE:   "Activa",
+  ATTENDED: "Atendida",
+  CLOSED:   "Cerrada",
+};
+
+function MetricCard({ label, value, sub, color }) {
   return (
     <div className="relative overflow-hidden bg-white dark:bg-[#050a18] border border-slate-100 dark:border-slate-900 rounded-[2rem] p-6 shadow-xl dark:shadow-none transition-all duration-300 hover:-translate-y-1">
       <div className={`absolute top-0 left-0 w-1.5 h-full ${borderSide}`} />
@@ -44,7 +51,7 @@ function MetricCard({ label, value, sub, icon: Icon, colorClass, borderSide }) {
 
 export default function Stats() {
   const { token } = useAuth();
-  const [data, setData] = useState(null);
+  const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
 
@@ -55,7 +62,9 @@ export default function Stats() {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     
     if (!token) return;
-    fetch(`${API_BASE}/stats`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_BASE}/stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
@@ -72,6 +81,16 @@ export default function Stats() {
 
   const statusMap = {};
   (data.byStatus ?? []).forEach((s) => { statusMap[s.status] = Number(s.total); });
+
+  const mapCenter = data.hotspots?.length
+    ? [Number(data.hotspots[0].lat), Number(data.hotspots[0].lng)]
+    : [20.6736, -103.4053];
+
+  function handleExportXML() {
+    const generatedXml = generateStatsXML(data);
+    setXml(generatedXml);
+    setShowXML(true);
+  }
 
   return (
     <PageShell title="Dashboard Operativo" subtitle="Análisis predictivo e histórico.">
@@ -161,7 +180,32 @@ export default function Stats() {
                   </div>
                </div>
             </div>
-          </div>
+          </Card>
+        </div>
+
+        <Card title="Mapa de calor — zonas con mayor incidencia">
+          {data.hotspots?.length === 0 ? (
+            <div className="text-sm text-slate-400 text-center py-8">Sin ubicaciones registradas aún.</div>
+          ) : (
+            <div className="h-[75vh] md:h-[420px] rounded-xl overflow-hidden border border-slate-100">
+              <MapContainer center={mapCenter} zoom={13} className="h-full w-full">
+                <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                {(data.hotspots ?? []).map((h, i) => (
+                  <Circle
+                    key={i}
+                    center={[Number(h.lat), Number(h.lng)]}
+                    radius={Math.max(50, Number(h.intensity) * 80)}
+                    pathOptions={{ color: "#ef4444", fillColor: "#ef4444", fillOpacity: Math.min(0.7, 0.15 + Number(h.intensity) * 0.1), weight: 1 }}
+                  >
+                    <MapTooltip>{Number(h.intensity)} alerta{Number(h.intensity) !== 1 ? "s" : ""} en esta zona</MapTooltip>
+                  </Circle>
+                ))}
+              </MapContainer>
+            </div>
+          )}
+          <p className="text-xs text-slate-400 mt-2">
+            Cada círculo representa una zona con alertas registradas. A mayor tamaño e intensidad, mayor reincidencia.
+          </p>
         </Card>
       </div>
 

@@ -24,7 +24,7 @@ function StatusPill({ status }) {
   );
 }
 
-const FALLBACK_CENTER = [20.6736, -103.4053];
+const FALLBACK_CENTER = [20.6736, -103.4053]; // Guadalajara
 
 export default function MapLive() {
   const { alerts, selected, selectAlert, loading, refreshActive } = useAlerts();
@@ -46,8 +46,8 @@ export default function MapLive() {
 
   return (
     <PageShell
-      title="Rastreo en Tiempo Real"
-      subtitle="Monitoreo geográfico de alertas y dispositivos."
+      title="Mapa en vivo"
+      subtitle="Marcador sobre la alerta seleccionada."
       right={
         <Button
           variant="outline"
@@ -174,7 +174,12 @@ export default function MapLive() {
                   </Button>
                 </div>
               </div>
+            ) : (
+              <div className="text-sm text-slate-500">
+                Selecciona una alerta para ver el marcador.
+              </div>
             )}
+          </Card>
 
             {!selected && (
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[20] pointer-events-none">
@@ -184,7 +189,7 @@ export default function MapLive() {
                 </div>
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
 

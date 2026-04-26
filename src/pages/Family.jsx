@@ -9,6 +9,7 @@ import { useAuth } from "../app/auth/AuthContext";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
+// ── RolePill ─────────────────────────────────────────────────────────
 function RolePill({ role }) {
   const isJefe = role === "JEFE_FAMILIA";
   return (
