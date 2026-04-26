@@ -1,375 +1,285 @@
 import React, { useEffect, useState } from "react";
-import "leaflet/dist/leaflet.css";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell,
+  Tooltip, ResponsiveContainer, Legend
 } from "recharts";
-import {
-  MapContainer, TileLayer, Circle, Tooltip as MapTooltip, GeoJSON,
-} from "react-leaflet";
-import {
-  TrendingUp, Activity, CheckCircle2, Clock,
-  AlertCircle, Map as MapIcon, ArrowLeft, Shield, Maximize2,
-} from "lucide-react";
-import { PageShell, Card } from "./_ui";
+import { MapContainer, TileLayer, Circle, Tooltip as MapTooltip } from "react-leaflet";
+import { PageShell, Card, Button } from "./_ui";
 import { useAuth } from "../app/auth/AuthContext";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
-// ── GeoJSON ──────────────────────────────────────────────────────────
-const COLONIAS_GEOJSON = {
-  type: "FeatureCollection",
-  features: [
-    {
-      type: "Feature",
-      properties: { name: "Zona de Cobertura" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [-103.4165010, 20.6719563],
-          [-103.3473385, 20.6751707],
-          [-103.2259525, 20.6576456],
-          [-103.2413723, 20.6237413],
-          [-103.3361581, 20.6025191],
-          [-103.4165010, 20.6719563],
-        ]],
-      },
-    },
-  ],
+const STATUS_COLOR = {
+  RECEIVED: "#f59e0b",
+  ACTIVE:   "#ef4444",
+  ATTENDED: "#3b82f6",
+  CLOSED:   "#10b981",
 };
 
-const geoJsonStyle = {
-  color: "#ef4444",
-  weight: 2.5,
-  opacity: 0.9,
-  fillColor: "#ef4444",
-  fillOpacity: 0.07,
+const STATUS_LABEL = {
+  RECEIVED: "Recibida",
+  ACTIVE:   "Activa",
+  ATTENDED: "Atendida",
+  CLOSED:   "Cerrada",
 };
 
-// ── MetricCard ───────────────────────────────────────────────────────
-function MetricCard({ label, value, sub, icon: Icon, accentColor, bgClass, textClass }) {
-  return (
-    <div className="relative overflow-hidden bg-white dark:bg-slate-900/70 border border-slate-100 dark:border-slate-800 rounded-[1.75rem] p-6 shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5">
-      {/* Barra lateral de color */}
-      <div className={`absolute top-0 left-0 w-1.5 h-full rounded-l-[1.75rem] ${accentColor}`} />
-      <div className="flex justify-between items-start">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            {label}
-          </p>
-          <p className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">
-            {value}
-          </p>
-          {sub && (
-            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              {sub}
-            </p>
-          )}
-        </div>
-        <div className={`p-3 rounded-2xl ${bgClass}`}>
-          <Icon size={20} className={textClass} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Tooltip personalizado para BarChart ──────────────────────────────
-function ChartTooltip({ active, payload, label, dark }) {
-  if (!active || !payload?.length) return null;
+function MetricCard({ label, value, sub, color }) {
   return (
     <div
-      style={{
-        background: dark ? "#0f172a" : "#ffffff",
-        border: `1px solid ${dark ? "#1e293b" : "#e2e8f0"}`,
-        borderRadius: 12,
-        padding: "10px 16px",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
-      }}
+      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"
+      style={{ borderLeft: `4px solid ${color}` }}
     >
-      <p style={{ color: dark ? "#64748b" : "#94a3b8", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
-        {label}
-      </p>
-      <p style={{ color: dark ? "#f1f5f9" : "#0f172a", fontSize: 14, fontWeight: 900 }}>
-        {payload[0]?.value}{" "}
-        <span style={{ color: "#3b82f6", fontWeight: 700 }}>alertas</span>
-      </p>
+      <div className="text-xs text-slate-500 mb-1">{label}</div>
+      <div className="text-3xl font-extrabold text-slate-900">{value}</div>
+      {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
     </div>
   );
 }
 
-// ── Overlay mapa de riesgo ───────────────────────────────────────────
-function RiskMapOverlay({ hotspots, onClose }) {
+function generateStatsXML(data) {
+  const escape = (str) =>
+    String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+
+  const lines = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<sigmafam_stats generated="${new Date().toISOString()}">`,
+    `  <summary>`,
+    `    <total_alerts>${escape(data.total)}</total_alerts>`,
+    `    <avg_response_minutes>${escape(data.avgResponseMinutes)}</avg_response_minutes>`,
+    `    <exported_at>${new Date().toISOString()}</exported_at>`,
+    `  </summary>`,
+    `  <by_status>`,
+    ...(data.byStatus ?? []).map((s) =>
+      `    <status name="${escape(s.status)}" total="${escape(s.total)}" />`
+    ),
+    `  </by_status>`,
+    `  <by_source>`,
+    ...(data.bySource ?? []).map((s) =>
+      `    <source name="${escape(s.source)}" total="${escape(s.total)}" />`
+    ),
+    `  </by_source>`,
+    `  <by_day>`,
+    ...(data.byDay ?? []).map((d) =>
+      `    <day date="${escape(d.day)}" total="${escape(d.total)}" />`
+    ),
+    `  </by_day>`,
+    `  <hotspots>`,
+    ...(data.hotspots ?? []).map((h) =>
+      `    <hotspot lat="${escape(h.lat)}" lng="${escape(h.lng)}" intensity="${escape(h.intensity)}" />`
+    ),
+    `  </hotspots>`,
+    `</sigmafam_stats>`,
+  ];
+  return lines.join("\n");
+}
+
+function XMLModal({ xml, onClose }) {
+  function download() {
+    const blob = new Blob([xml], { type: "application/xml" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `sigmafam-stats-${new Date().toISOString().slice(0, 10)}.xml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#020617", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 24px", background: "#0f172a", borderBottom: "1px solid #1e293b" }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 6 }}>
-          <ArrowLeft size={18} color="#94a3b8" />
-        </button>
-        <Shield size={15} color="#f87171" />
-        <span style={{ color: "#fff", fontWeight: 900, fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-          Zonas de Riesgo · Mapa Detallado
-        </span>
-      </div>
-      <div style={{ flex: 1 }}>
-        <MapContainer
-          center={[
-            COLONIAS_GEOJSON.features[0].geometry.coordinates[0][0][1],
-            COLONIAS_GEOJSON.features[0].geometry.coordinates[0][0][0],
-          ]}
-          zoom={11}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <GeoJSON data={COLONIAS_GEOJSON} style={geoJsonStyle} />
-          {(hotspots ?? [])
-            .filter(h => !isNaN(Number(h.lat)) && !isNaN(Number(h.lng)))
-            .map((h, i) => {
-              const intensity = Number(h.intensity) || 0;
-              return (
-                <Circle
-                  key={i}
-                  center={[Number(h.lat), Number(h.lng)]}
-                  radius={Math.max(50, intensity * 120)}
-                  pathOptions={{
-                    color: "#ef4444",
-                    fillColor: "#ef4444",
-                    fillOpacity: Math.max(0.1, Math.min(0.35, intensity * 0.05)),
-                    weight: 0,
-                  }}
-                >
-                  <MapTooltip>ZONA CRÍTICA: {intensity} alertas</MapTooltip>
-                </Circle>
-              );
-            })}
-        </MapContainer>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div>
+            <div className="font-extrabold text-slate-900">Exportar Estadísticas XML</div>
+            <div className="text-xs text-slate-400 mt-0.5">Vista previa del archivo generado</div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={download}>⬇ Descargar</Button>
+            <Button variant="outline" onClick={onClose}>Cerrar</Button>
+          </div>
+        </div>
+        <div className="overflow-auto flex-1 p-4">
+          <pre className="text-xs font-mono text-slate-700 bg-slate-50 rounded-xl p-4 whitespace-pre-wrap">
+            {xml}
+          </pre>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Stats ────────────────────────────────────────────────────────────
 export default function Stats() {
-  const { token }                       = useAuth();
-  const [data, setData]                 = useState(null);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState("");
-  const [showRiskMap, setShowRiskMap]   = useState(false);
-  const [isDark, setIsDark]             = useState(false);
-
-  // Detectar modo oscuro vía MutationObserver
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains("dark"));
-    check();
-    const obs = new MutationObserver(check);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
-  }, []);
+  const { token } = useAuth();
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState("");
+  const [showXML, setShowXML] = useState(false);
+  const [xml, setXml]         = useState("");
 
   useEffect(() => {
     if (!token) return;
     fetch(`${API_BASE}/stats`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         if (d.error) throw new Error(d.error);
         setData(d);
       })
-      .catch(e => setError(e.message))
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [token]);
 
-  if (loading || error) {
+  if (loading)
     return (
-      <PageShell title="Dashboard Operativo">
-        <div className="flex items-center justify-center py-32 gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent" />
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">
-            {error || "Cargando estadísticas..."}
-          </span>
+      <PageShell title="Estadísticas" subtitle="Cargando datos...">
+        <div className="flex items-center justify-center h-48 text-slate-400 gap-2">
+          <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+          </svg>
+          Cargando estadísticas...
         </div>
       </PageShell>
     );
-  }
 
-  // ── Preparar datos ────────────────────────────────────────────────
-  const barData = (data.byDay ?? []).map(d => ({
+  if (error)
+    return (
+      <PageShell title="Estadísticas">
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          {error}
+        </div>
+      </PageShell>
+    );
+
+  const barData = (data.byDay ?? []).map((d) => ({
     day: new Date(d.day).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }),
     Alertas: Number(d.total),
   }));
 
   const statusMap = {};
-  (data.byStatus ?? []).forEach(s => { statusMap[s.status] = Number(s.total); });
+  (data.byStatus ?? []).forEach((s) => { statusMap[s.status] = Number(s.total); });
 
-  const totalAlertas  = Object.values(statusMap).reduce((a, b) => a + b, 0);
-  const criticas      = (statusMap.ACTIVE || 0) + (statusMap.RECEIVED || 0);
-  const atendidas     = statusMap.ATTENDED || 0;
-  const cerradas      = statusMap.CLOSED   || 0;
+  const mapCenter = data.hotspots?.length
+    ? [Number(data.hotspots[0].lat), Number(data.hotspots[0].lng)]
+    : [20.6736, -103.4053];
 
-  // Colores de la gráfica según tema
-  const gridColor   = isDark ? "#1e293b" : "#f1f5f9";
-  const axisColor   = isDark ? "#475569" : "#94a3b8";
-  const barDefault  = isDark ? "#334155" : "#cbd5e1";
+  function handleExportXML() {
+    const generatedXml = generateStatsXML(data);
+    setXml(generatedXml);
+    setShowXML(true);
+  }
 
   return (
     <>
-      {showRiskMap && (
-        <RiskMapOverlay hotspots={data.hotspots} onClose={() => setShowRiskMap(false)} />
-      )}
+      {showXML && <XMLModal xml={xml} onClose={() => setShowXML(false)} />}
 
       <PageShell
-        title="Dashboard Operativo"
-        subtitle={
-          <span className="text-slate-500 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] italic">
-            ANÁLISIS Y MÉTRICAS DEL SISTEMA
-          </span>
+        title="Estadísticas"
+        subtitle="Panel de monitoreo operativo del sistema."
+        right={
+          <Button onClick={handleExportXML}>⬇ Exportar XML</Button>
         }
       >
-        {/* ── MetricCards ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            label="Total Alertas"
-            value={totalAlertas}
-            sub="Histórico acumulado"
-            icon={TrendingUp}
-            accentColor="bg-blue-500"
-            bgClass="bg-blue-500/10 dark:bg-blue-500/15"
-            textClass="text-blue-500"
-          />
-          <MetricCard
-            label="Críticas"
-            value={criticas}
-            sub="Activas + recibidas"
-            icon={AlertCircle}
-            accentColor="bg-red-500"
-            bgClass="bg-red-500/10 dark:bg-red-500/15"
-            textClass="text-red-500"
-          />
-          <MetricCard
-            label="Atendidas"
-            value={atendidas}
-            sub="En seguimiento"
-            icon={Clock}
-            accentColor="bg-sky-500"
-            bgClass="bg-sky-500/10 dark:bg-sky-500/15"
-            textClass="text-sky-500"
-          />
-          <MetricCard
-            label="Cerradas"
-            value={cerradas}
-            sub="Resueltas"
-            icon={CheckCircle2}
-            accentColor="bg-emerald-500"
-            bgClass="bg-emerald-500/10 dark:bg-emerald-500/15"
-            textClass="text-emerald-500"
-          />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <MetricCard label="Total de alertas" value={data.total} sub="Desde el inicio" color="#6366f1" />
+          <MetricCard label="Alertas activas" value={(statusMap.ACTIVE ?? 0) + (statusMap.RECEIVED ?? 0)} sub="En este momento" color="#ef4444" />
+          <MetricCard label="Alertas cerradas" value={statusMap.CLOSED ?? 0} sub="Resueltas" color="#10b981" />
+          <MetricCard label="Tiempo promedio" value={`${data.avgResponseMinutes ?? 0} min`} sub="De respuesta" color="#f59e0b" />
         </div>
 
-        {/* ── Gráfica + Desglose ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card title="Tendencia de Alertas · Últimos 30 días" className="bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800">
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={barData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="4 4" />
-                  <XAxis
-                    dataKey="day"
-                    tick={{ fill: axisColor, fontSize: 10, fontWeight: 700 }}
-                    axisLine={{ stroke: gridColor }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: axisColor, fontSize: 10, fontWeight: 700 }}
-                    axisLine={false}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    content={<ChartTooltip dark={isDark} />}
-                    cursor={{ fill: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)", radius: 8 }}
-                  />
-                  <Bar dataKey="Alertas" radius={[6, 6, 0, 0]} maxBarSize={40}>
-                    {barData.map((_, i) => (
-                      <Cell
-                        key={i}
-                        fill={i === barData.length - 1 ? "#3b82f6" : barDefault}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </Card>
-          </div>
+        <Card title="Incidencias por día — últimos 30 días">
+          {barData.length === 0 ? (
+            <div className="text-sm text-slate-400 text-center py-8">Sin datos en los últimos 30 días.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={barData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: "12px" }} />
+                <Legend wrapperStyle={{ fontSize: "12px" }} />
+                <Bar dataKey="Alertas" fill="#6366f1" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
 
-          {/* Desglose por estado */}
-          <Card title="Desglose por Estado" className="bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800">
-            <div className="space-y-1 mt-1">
-              {Object.entries(statusMap).length === 0 ? (
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-600 italic text-center py-8">
-                  Sin datos
-                </p>
-              ) : (
-                Object.entries(statusMap).map(([k, v]) => {
-                  const pct = totalAlertas > 0 ? Math.round((v / totalAlertas) * 100) : 0;
-                  const colors = {
-                    ACTIVE:   "bg-red-500",
-                    RECEIVED: "bg-amber-500",
-                    ATTENDED: "bg-sky-500",
-                    CLOSED:   "bg-emerald-500",
-                  };
-                  const barColor = colors[k] ?? "bg-slate-400";
-                  return (
-                    <div key={k}>
-                      <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{k}</span>
-                        <span className="text-sm font-black text-slate-900 dark:text-white tabular-nums">{v}</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mb-3 overflow-hidden">
-                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%`, transition: "width 0.8s ease" }} />
-                      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Card title="Distribución por estado">
+            <div className="space-y-2 mt-1">
+              {(data.byStatus ?? []).map((s) => {
+                const pct = data.total > 0 ? Math.round((s.total / data.total) * 100) : 0;
+                return (
+                  <div key={s.status}>
+                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                      <span>{STATUS_LABEL[s.status] ?? s.status}</span>
+                      <span className="font-semibold">{s.total} ({pct}%)</span>
                     </div>
-                  );
-                })
-              )}
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: STATUS_COLOR[s.status] ?? "#6366f1" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card title="Origen de alertas">
+            <div className="space-y-2 mt-1">
+              {(data.bySource ?? []).map((s) => {
+                const pct = data.total > 0 ? Math.round((s.total / data.total) * 100) : 0;
+                return (
+                  <div key={s.source}>
+                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                      <span>{s.source === "IOT" ? "📡 Dispositivo" : "🌐 Web"}</span>
+                      <span className="font-semibold">{s.total} ({pct}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: s.source === "IOT" ? "#6366f1" : "#3b82f6" }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
         </div>
 
-        {/* ── Mapa de incidencia ── */}
-        <Card title="Mapa de Incidencia · Guadalajara" className="bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 p-0">
-          <div className="px-5 pt-4 pb-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 mb-3">
-              DISTRIBUCIÓN GEOGRÁFICA DE ALERTAS ACTIVAS
-            </p>
-          </div>
-          <div className="rounded-b-2xl overflow-hidden" style={{ height: 380 }}>
-            <MapContainer center={[20.64, -103.33]} zoom={11} style={{ height: "100%", width: "100%" }}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <GeoJSON data={COLONIAS_GEOJSON} style={geoJsonStyle} />
-              {(data.hotspots ?? [])
-                .filter(h => !isNaN(Number(h.lat)) && !isNaN(Number(h.lng)))
-                .map((h, i) => (
+        <Card title="Mapa de calor — zonas con mayor incidencia">
+          {data.hotspots?.length === 0 ? (
+            <div className="text-sm text-slate-400 text-center py-8">Sin ubicaciones registradas aún.</div>
+          ) : (
+            <div className="h-[75vh] md:h-[420px] rounded-xl overflow-hidden border border-slate-100">
+              <MapContainer center={mapCenter} zoom={13} className="h-full w-full">
+                <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                {(data.hotspots ?? []).map((h, i) => (
                   <Circle
                     key={i}
                     center={[Number(h.lat), Number(h.lng)]}
-                    radius={150}
-                    pathOptions={{ color: "#ef4444", fillColor: "#ef4444", fillOpacity: 0.3, weight: 1 }}
-                  />
+                    radius={Math.max(50, Number(h.intensity) * 80)}
+                    pathOptions={{ color: "#ef4444", fillColor: "#ef4444", fillOpacity: Math.min(0.7, 0.15 + Number(h.intensity) * 0.1), weight: 1 }}
+                  >
+                    <MapTooltip>{Number(h.intensity)} alerta{Number(h.intensity) !== 1 ? "s" : ""} en esta zona</MapTooltip>
+                  </Circle>
                 ))}
-            </MapContainer>
-          </div>
-          <div className="p-4">
-            <button
-              onClick={() => setShowRiskMap(true)}
-              className="w-full py-3 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-lg"
-            >
-              <Maximize2 size={13} />
-              Ver mapa de riesgo detallado
-            </button>
-          </div>
+              </MapContainer>
+            </div>
+          )}
+          <p className="text-xs text-slate-400 mt-2">
+            Cada círculo representa una zona con alertas registradas. A mayor tamaño e intensidad, mayor reincidencia.
+          </p>
         </Card>
-
       </PageShell>
     </>
   );

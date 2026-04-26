@@ -37,9 +37,11 @@ export function AlertsProvider({ children }) {
     }
   }, [token]);
 
-  // Cargar al montar y cuando cambie el token
+  // Cargar al montar y auto-refresh cada 30 segundos
   useEffect(() => {
     refreshActive();
+    const interval = setInterval(refreshActive, 30000);
+    return () => clearInterval(interval);
   }, [refreshActive]);
 
   // ── Simular alerta (crea en backend) ──────────────────────────────────────
