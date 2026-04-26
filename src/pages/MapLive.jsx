@@ -274,7 +274,7 @@ export default function MapLive() {
           )}
         </div>
 
-        <div className="lg:col-span-3 flex flex-col min-h-0">
+        <div className="lg:col-span-3 flex flex-col h-[60vh] lg:h-auto lg:min-h-0">
           <div className="flex-1 bg-slate-100 dark:bg-[#050a18] border border-slate-200 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-inner relative">
             <div className="h-full w-full dark-map-filter transition-all duration-500">
               <MapContainer center={center} zoom={14} className="h-full w-full z-10" zoomControl={false}>
