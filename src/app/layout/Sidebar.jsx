@@ -11,7 +11,6 @@ const nav = [
   { to: "/app/family",    label: "Familia",      roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/contacts",  label: "Contactos",    roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
   { to: "/app/device",    label: "Dispositivo",  roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
-  { to: "/app/audit",     label: "Auditoría",    roles: ["ADMIN"] },
   { to: "/app/settings",  label: "Ajustes",      roles: ["ADMIN","JEFE_FAMILIA","MIEMBRO"] },
 ];
 
