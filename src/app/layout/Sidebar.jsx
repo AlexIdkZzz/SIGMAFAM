@@ -25,7 +25,7 @@ export default function Sidebar({ onNavigate }) {
 
       <div className="flex flex-col gap-1 flex-1">
         {nav
-          .filter((i) => !role || i.roles.includes(role))
+          .filter((i) => i.roles.includes(role || "MIEMBRO"))
           .map((i) => (
             <NavLink key={i.to} to={i.to} onClick={onNavigate}
               className={({ isActive }) =>
