@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
             id:       payload.id,
             email:    payload.email,
             fullName: payload.fullName ?? "",
-            role:     payload.role ?? null,
+            role:     payload.role?.toUpperCase() ?? null,
           });
         }
       } catch {
@@ -48,8 +48,9 @@ export function AuthProvider({ children }) {
     const { access_token, user: userData } = data;
     localStorage.setItem("sigmafam_token", access_token);
     setToken(access_token);
-    setUser(userData);
-    return userData;
+    const normalizedUser = { ...userData, role: userData.role?.toUpperCase() ?? null };
+    setUser(normalizedUser);
+    return normalizedUser;
   }
 
   async function register(fullName, email, password) {
