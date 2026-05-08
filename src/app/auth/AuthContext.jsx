@@ -68,8 +68,28 @@ export function AuthProvider({ children }) {
     _clearSession();
   }
 
+  /**
+   * Actualiza el JWT en localStorage y el estado del usuario (ej. tras cambio de rol).
+   * Lo llaman Family.jsx después de crear o unirse a un grupo familiar.
+   */
+  function updateAuth(newToken) {
+    try {
+      const payload = JSON.parse(atob(newToken.split(".")[1]));
+      localStorage.setItem("sigmafam_token", newToken);
+      setToken(newToken);
+      setUser({
+        id:       payload.id,
+        email:    payload.email,
+        fullName: payload.fullName ?? "",
+        role:     payload.role?.toUpperCase() ?? null,
+      });
+    } catch (e) {
+      console.error("[AuthContext] updateAuth: token inválido", e);
+    }
+  }
+
   const value = useMemo(
-    () => ({ user, token, loading, login, register, logout }),
+    () => ({ user, token, loading, login, register, logout, updateAuth }),
     [user, token, loading]
   );
 

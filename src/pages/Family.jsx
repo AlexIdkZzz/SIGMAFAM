@@ -32,7 +32,7 @@ function formatDate(dt) {
 }
 
 // ── NoGroup ──────────────────────────────────────────────────────────
-function NoGroup({ token, onRefresh }) {
+function NoGroup({ token, onRefresh, onUpdateAuth }) {
   const [mode, setMode]       = useState(null);
   const [name, setName]       = useState("");
   const [code, setCode]       = useState("");
@@ -57,6 +57,8 @@ function NoGroup({ token, onRefresh }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      // Actualizar el JWT con el nuevo rol JEFE_FAMILIA para que RequireAuth lo reconozca
+      if (data.access_token) onUpdateAuth(data.access_token);
       onRefresh();
     } catch { setError("ERROR AL CREAR GRUPO."); }
     finally { setLoading(false); }
@@ -73,6 +75,8 @@ function NoGroup({ token, onRefresh }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      // Actualizar el JWT con el nuevo rol MIEMBRO
+      if (data.access_token) onUpdateAuth(data.access_token);
       onRefresh();
     } catch { setError("CÓDIGO INVÁLIDO O GRUPO LLENO."); }
     finally { setLoading(false); }
@@ -161,7 +165,7 @@ function NoGroup({ token, onRefresh }) {
 
 // ── Family ───────────────────────────────────────────────────────────
 export default function Family() {
-  const { token, user }   = useAuth();
+  const { token, user, updateAuth } = useAuth();
   const navigate          = useNavigate();
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -206,7 +210,7 @@ export default function Family() {
         </button>
       }
     >
-      <NoGroup token={token} onRefresh={fetchGroup} />
+      <NoGroup token={token} onRefresh={fetchGroup} onUpdateAuth={updateAuth} />
     </PageShell>
   );
 

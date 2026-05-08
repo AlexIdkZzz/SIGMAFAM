@@ -102,7 +102,8 @@ export default function Contacts() {
       });
       if (!response.ok) throw new Error("Error en la conexión");
       const data = await response.json();
-      setContacts(Array.isArray(data) ? data : []);
+      // El backend devuelve { contacts: [...] }, no un array directamente
+      setContacts(Array.isArray(data.contacts) ? data.contacts : []);
     } catch (err) {
       console.error("Fetch error:", err);
       setError("NO SE PUDO SINCRONIZAR LA RED.");
