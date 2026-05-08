@@ -460,8 +460,18 @@ app.post("/api/v1/auth/login", async (req, res) => {
     if (!u.verified)
       return res.status(403).json({ error: "EMAIL_NOT_VERIFIED" });
 
+    // Sanear rol: si el usuario existe en la BD con role = null, asignarle MIEMBRO
+    let userRole = u.role;
+    if (!userRole) {
+      userRole = "MIEMBRO";
+      await pool.execute(
+        `UPDATE users SET role = 'MIEMBRO' WHERE id = :id`,
+        { id: u.id }
+      );
+    }
+
     const access_token = jwt.sign(
-      { id: u.id, email: u.email, fullName: u.full_name, role: u.role },
+      { id: u.id, email: u.email, fullName: u.full_name, role: userRole },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -470,7 +480,7 @@ app.post("/api/v1/auth/login", async (req, res) => {
 
     return res.json({
       access_token,
-      user: { id: u.id, full_name: u.full_name, email: u.email, role: u.role },
+      user: { id: u.id, full_name: u.full_name, email: u.email, role: userRole },
     });
   } catch (e) {
     console.error("[Login]", e);
