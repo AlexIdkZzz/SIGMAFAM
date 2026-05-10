@@ -11,11 +11,6 @@ const crypto = require("crypto");
 const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const twilio = require("twilio");
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
 
 const app = express();
 
@@ -51,43 +46,70 @@ function generateInviteCode() {
   return Math.floor(10000000 + Math.random() * 90000000).toString();
 }
 
+async function _sendWhatsApp(phone, userName, locationUrl) {
+  const to = phone.replace(/^\+/, "");
+  const res = await fetch(
+    `https://graph.facebook.com/v21.0/${process.env.META_PHONE_NUMBER_ID}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.META_WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "template",
+        template: {
+          name: process.env.META_WA_TEMPLATE_NAME ?? "sigmafam_alerta",
+          language: { code: "es_MX" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: userName },
+                { type: "text", text: locationUrl },
+              ],
+            },
+          ],
+        },
+      }),
+    }
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+  }
+}
+
 /**
- * Envía mensajes de emergencia a los contactos del usuario via SMS o WhatsApp.
+ * Envía mensajes de emergencia a los contactos del usuario via WhatsApp.
  * No lanza error si falla — la alerta ya se creó, el mensaje es best-effort.
  */
 async function sendEmergencyMessages(userId, userName, lat, lng) {
   try {
     const [contacts] = await pool.execute(
-      `SELECT name, phone, channel FROM emergency_contacts WHERE user_id = :userId`,
+      `SELECT name, phone FROM emergency_contacts WHERE user_id = :userId`,
       { userId }
     );
 
     if (!contacts.length) return;
 
-    const locationText = (lat && lng)
-      ? `📍 Ubicación: https://maps.google.com/?q=${lat},${lng}`
-      : "📍 Ubicación no disponible";
-
-    const message = `🚨 ALERTA SIGMAFAM\n${userName} ha activado una alerta de emergencia.\n${locationText}`;
+    const locationUrl = lat && lng
+      ? `https://maps.google.com/?q=${lat},${lng}`
+      : "no disponible";
 
     for (const contact of contacts) {
       try {
         const phone = contact.phone.startsWith("+") ? contact.phone : `+${contact.phone}`;
-        const isWA  = contact.channel === "WHATSAPP";
-
-        await twilioClient.messages.create({
-          from: isWA ? process.env.TWILIO_WA_FROM : process.env.TWILIO_PHONE,
-          to:   isWA ? `whatsapp:${phone}` : phone,
-          body: message,
-        });
-
-        console.log(`[Twilio] Mensaje enviado a ${contact.name} (${contact.channel})`);
+        await _sendWhatsApp(phone, userName, locationUrl);
+        console.log(`[Meta WA] Mensaje enviado a ${contact.name}`);
       } catch (err) {
-        console.error(`[Twilio] Error al enviar a ${contact.name}:`, err.message);
+        console.error(`[Meta WA] Error al enviar a ${contact.name}:`, err.message);
       }
     }
   } catch (e) {
-    console.error("[Twilio] Error general:", e.message);
+    console.error("[Mensajes] Error general:", e.message);
   }
 }
 
@@ -1164,13 +1186,10 @@ app.get("/api/v1/contacts", authRequired, async (req, res) => {
 app.post("/api/v1/contacts", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, phone, channel } = req.body || {};
+    const { name, phone } = req.body || {};
 
     if (!name?.trim() || !phone?.trim())
       return res.status(400).json({ error: "MISSING_FIELDS" });
-
-    const validChannels = ["SMS", "WHATSAPP"];
-    const ch = validChannels.includes(channel?.toUpperCase()) ? channel.toUpperCase() : "WHATSAPP";
 
     // Límite de 5 contactos por usuario
     const [countRows] = await pool.execute(
@@ -1182,8 +1201,8 @@ app.post("/api/v1/contacts", authRequired, async (req, res) => {
 
     const [ins] = await pool.execute(
       `INSERT INTO emergency_contacts (user_id, name, phone, channel)
-       VALUES (:userId, :name, :phone, :channel)`,
-      { userId, name: name.trim(), phone: phone.trim(), channel: ch }
+       VALUES (:userId, :name, :phone, 'WHATSAPP')`,
+      { userId, name: name.trim(), phone: phone.trim() }
     );
 
     return res.status(201).json({ ok: true, id: ins.insertId });
@@ -1217,24 +1236,21 @@ app.delete("/api/v1/contacts/:id", authRequired, async (req, res) => {
 /**
  * PATCH /api/v1/contacts/:id  (JWT)
  * Edita un contacto de emergencia.
- * Body: { name, phone, channel }
+ * Body: { name, phone }
  */
 app.patch("/api/v1/contacts/:id", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
     const id     = Number(req.params.id);
-    const { name, phone, channel } = req.body || {};
+    const { name, phone } = req.body || {};
 
     if (!name?.trim() || !phone?.trim())
       return res.status(400).json({ error: "MISSING_FIELDS" });
 
-    const validChannels = ["SMS", "WHATSAPP"];
-    const ch = validChannels.includes(channel?.toUpperCase()) ? channel.toUpperCase() : "WHATSAPP";
-
     await pool.execute(
-      `UPDATE emergency_contacts SET name = :name, phone = :phone, channel = :channel
+      `UPDATE emergency_contacts SET name = :name, phone = :phone
        WHERE id = :id AND user_id = :userId`,
-      { name: name.trim(), phone: phone.trim(), channel: ch, id, userId }
+      { name: name.trim(), phone: phone.trim(), id, userId }
     );
 
     return res.json({ ok: true });
