@@ -4,7 +4,7 @@ import { useAlerts } from "../app/alerts/AlertsContext";
 import {
   Shield, AlertTriangle, Activity, Bell, Map as MapIcon,
   CheckCircle2, Clock, Cpu, Users, TrendingUp,
-  Radio, Zap, Eye, ChevronRight, Sparkles, ArrowRight
+  Radio, Zap, Eye, ChevronRight, ArrowRight
 } from "lucide-react";
 
 function StatusBadge({ status }) {
@@ -89,7 +89,7 @@ function QuickAction({ icon: Icon, label, onClick, primary = false }) {
 
 export default function Dashboard() {
   const nav = useNavigate();
-  const { alerts, selected, simulateIncomingAlert } = useAlerts();
+  const { alerts, selected } = useAlerts();
 
   const activeAlerts = useMemo(() => alerts.filter((a) => a.status === "ACTIVE" || a.status === "RECEIVED"), [alerts]);
   const latestActive = activeAlerts[0] ?? null;
@@ -125,14 +125,6 @@ export default function Dashboard() {
             >
               <Eye size={15} />
               Ver alertas
-            </button>
-            <button
-              onClick={simulateIncomingAlert}
-              className="relative group overflow-hidden inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-bold tracking-tight transition-all duration-300 active:scale-[0.98] bg-gradient-to-b from-slate-800 to-slate-950 dark:from-slate-50 dark:to-slate-200 text-white dark:text-slate-900 hover:from-slate-700 hover:to-slate-900 dark:hover:from-white dark:hover:to-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_8px_20px_-5px_rgba(15,23,42,0.25)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_8px_20px_-5px_rgba(0,0,0,0.35)]"
-            >
-              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out pointer-events-none bg-gradient-to-r from-transparent via-white/15 dark:via-sky-400/20 to-transparent" />
-              <Sparkles size={14} className="relative z-10" />
-              <span className="relative z-10">Simular alerta</span>
             </button>
           </div>
         </div>

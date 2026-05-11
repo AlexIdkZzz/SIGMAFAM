@@ -5,7 +5,7 @@ import Drawer from "./_drawer";
 import ConfirmModal from "./_modal";
 import { useAlerts } from "../app/alerts/AlertsContext";
 import MiniMap from "../app/maps/MiniMap";
-import { LayoutPanelLeft, RefreshCw, Zap, AlertTriangle, ChevronDown, Check } from "lucide-react";
+import { LayoutPanelLeft, RefreshCw, AlertTriangle, ChevronDown, Check } from "lucide-react";
 
 function fmtTime(iso) {
   try { return new Date(iso).toLocaleString("es-MX"); }
@@ -211,7 +211,7 @@ export default function Alerts() {
     alerts, selected, selectedId,
     loading, error,
     alertDetail, detailLoading,
-    selectAlert, simulateIncomingAlert,
+    selectAlert,
     refreshActive, markAttended, closeAlert,
   } = useAlerts();
 
@@ -254,12 +254,6 @@ export default function Alerts() {
           >
             <LayoutPanelLeft size={14} className="mr-2" />
             {drawerOpen ? "Cerrar Panel" : "Ver Detalle"}
-          </Button>
-          <Button 
-            onClick={simulateIncomingAlert} 
-            className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-          >
-            <Zap size={14} className="mr-2 fill-current" /> Simular Alerta
           </Button>
         </div>
       }
