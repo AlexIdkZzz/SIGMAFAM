@@ -5,6 +5,8 @@ import { useTheme } from "../app/theme/ThemeContext";
 import {
   Sun, Moon, Lock, LogOut, Eye, EyeOff,
   CheckCircle2, AlertCircle, ChevronRight, Shield,
+  ScrollText, ShieldAlert, Mail, HelpCircle, ChevronDown,
+  Instagram, Github, ExternalLink,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1";
@@ -15,6 +17,9 @@ function Section({ icon: Icon, title, subtitle, children, accent = "sky" }) {
     sky:     "bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400",
     violet:  "bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400",
     red:     "bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400",
+    emerald: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+    amber:   "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400",
+    slate:   "bg-slate-100 dark:bg-slate-700/30 text-slate-600 dark:text-slate-400",
   }[accent];
 
   return (
@@ -78,6 +83,63 @@ function InlineAlert({ type, message }) {
         ? <AlertCircle size={15} className="flex-shrink-0" />
         : <CheckCircle2 size={15} className="flex-shrink-0" />}
       {message}
+    </div>
+  );
+}
+
+/* ─── Componente: ítem de FAQ (acordeón) ─── */
+function FaqItem({ question, answer }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 py-3.5 text-left group"
+      >
+        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+          {question}
+        </span>
+        <ChevronDown
+          size={15}
+          className={`flex-shrink-0 text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <p className="pb-4 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+          {answer}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Componente: enlace de contacto/red social ─── */
+function ContactLink({ icon: Icon, label, value, href, accent = "text-sky-600 dark:text-sky-400" }) {
+  const content = (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
+      <div className="flex items-center gap-3">
+        <Icon size={16} className={`flex-shrink-0 ${accent}`} />
+        <div>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-500 uppercase tracking-wide">{label}</p>
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{value}</p>
+        </div>
+      </div>
+      {href && <ExternalLink size={13} className="text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />}
+    </div>
+  );
+  return href
+    ? <a href={href} target="_blank" rel="noopener noreferrer">{content}</a>
+    : <div>{content}</div>;
+}
+
+/* ─── Componente: ítem de términos ─── */
+function TermItem({ number, children }) {
+  return (
+    <div className="flex gap-3 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px] font-bold flex items-center justify-center mt-0.5">
+        {number}
+      </span>
+      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{children}</p>
     </div>
   );
 }
@@ -330,6 +392,119 @@ export default function Settings() {
         </div>
 
       </div>
+
+      {/* ── Separador ── */}
+      <div className="flex items-center gap-3 pt-2">
+        <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-300 dark:text-slate-700">Legal e información</span>
+        <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800" />
+      </div>
+
+      {/* ── Grid 2 columnas: TyC + Descarga ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+
+        {/* ══════════ TyC ══════════ */}
+        <Section icon={ScrollText} title="Términos y Condiciones" subtitle="Última actualización: enero 2025" accent="slate">
+          <TermItem number="1">
+            El uso de SIGMAFAM implica la aceptación plena de estos términos. Si no estás de acuerdo, debes discontinuar el uso de la aplicación.
+          </TermItem>
+          <TermItem number="2">
+            SIGMAFAM es exclusivamente para uso personal y familiar. Queda prohibido su uso con fines comerciales o de redistribución sin autorización expresa.
+          </TermItem>
+          <TermItem number="3">
+            El usuario es responsable de mantener la confidencialidad de sus credenciales de acceso y de todas las actividades realizadas bajo su cuenta.
+          </TermItem>
+          <TermItem number="4">
+            Nos reservamos el derecho de modificar, suspender o discontinuar el servicio en cualquier momento, con o sin previo aviso.
+          </TermItem>
+          <TermItem number="5">
+            Los datos personales se almacenan y procesan conforme a nuestra política de privacidad. No compartimos información con terceros sin consentimiento.
+          </TermItem>
+        </Section>
+
+        {/* ══════════ Descarga de responsabilidad ══════════ */}
+        <Section icon={ShieldAlert} title="Descarga de Responsabilidad" subtitle="Leer antes de usar el sistema de alertas" accent="amber">
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-4 py-3 mb-4">
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1">Aviso importante</p>
+            <p className="text-sm text-amber-700 dark:text-amber-300 leading-relaxed">
+              SIGMAFAM es un proyecto académico del CETI Tonalá. <strong>No reemplaza</strong> a los servicios de emergencia oficiales.
+            </p>
+          </div>
+          <TermItem number="•">
+            Ante cualquier emergencia real, contacta de inmediato al <strong className="text-slate-700 dark:text-slate-300">911</strong> u otras autoridades competentes.
+          </TermItem>
+          <TermItem number="•">
+            La ubicación reportada por el sistema es aproximada y puede verse afectada por la señal del dispositivo o GPS.
+          </TermItem>
+          <TermItem number="•">
+            No garantizamos disponibilidad continua del servicio. El sistema puede presentar interrupciones sin previo aviso.
+          </TermItem>
+          <TermItem number="•">
+            Los desarrolladores no asumen responsabilidad por daños derivados del uso incorrecto o de fallas técnicas del sistema.
+          </TermItem>
+        </Section>
+
+      </div>
+
+      {/* ── Grid 2 columnas: Contacto + FAQ ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+
+        {/* ══════════ Contacto y redes sociales ══════════ */}
+        <Section icon={Mail} title="Contacto y Redes Sociales" subtitle="Comunícate con el equipo de desarrollo" accent="sky">
+          <div className="flex flex-col gap-2">
+            <ContactLink
+              icon={Mail}
+              label="Correo electrónico"
+              value="sigmafam@castoresceti.com"
+              href="mailto:sigmafam@castoresceti.com"
+              accent="text-sky-600 dark:text-sky-400"
+            />
+            <ContactLink
+              icon={Instagram}
+              label="Instagram"
+              value="@alexidk_zzz"
+              href="https://www.instagram.com/alexidk_zzz/"
+              accent="text-pink-500 dark:text-pink-400"
+            />
+            <ContactLink
+              icon={Github}
+              label="GitHub"
+              value="github.com/AlexIdkZzz"
+              href="https://github.com/AlexIdkZzz"
+              accent="text-slate-700 dark:text-slate-300"
+            />
+          </div>
+          <p className="mt-4 text-xs text-slate-400 dark:text-slate-600 italic">
+            CETI Tonalá 2025. Proyecto académico de desarrollo de software. No usar con fines comerciales.
+          </p>
+        </Section>
+
+        {/* ══════════ Preguntas y Respuestas ══════════ */}
+        <Section icon={HelpCircle} title="Preguntas Frecuentes" subtitle="Respuestas a las dudas más comunes" accent="emerald">
+          <FaqItem
+            question="¿Qué es SIGMAFAM?"
+            answer="SIGMAFAM es un Sistema Integral de Gestión y Monitoreo Familiar. Permite enviar alertas de emergencia geolocalizadas a contactos de confianza y a los miembros del grupo familiar registrados."
+          />
+          <FaqItem
+            question="¿Cómo funciona el botón de alerta?"
+            answer="Al activar una alerta (desde la app web o el dispositivo IoT), el sistema registra tu ubicación y envía notificaciones por WhatsApp a tus contactos de emergencia con un enlace de localización."
+          />
+          <FaqItem
+            question="¿Mis datos de ubicación están seguros?"
+            answer="Sí. Los datos de ubicación se almacenan de forma cifrada y solo son accesibles por ti y los miembros de tu grupo familiar. No compartimos información con terceros."
+          />
+          <FaqItem
+            question="¿Qué hago si se activa una alerta por error?"
+            answer="Puedes cambiar el estado de la alerta a 'Cerrada' desde la sección Gestión de Alertas. También puedes notificar directamente a tus contactos para informarles que fue un falso positivo."
+          />
+          <FaqItem
+            question="¿Puedo usar SIGMAFAM sin dispositivo IoT?"
+            answer="Sí. La aplicación web permite enviar alertas manualmente desde cualquier dispositivo con navegador. El dispositivo IoT es complementario y permite activar alertas físicamente sin necesidad del celular."
+          />
+        </Section>
+
+      </div>
+
     </div>
   );
 }
