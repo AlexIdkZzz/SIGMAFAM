@@ -6,7 +6,7 @@ import {
   Sun, Moon, Lock, LogOut, Eye, EyeOff,
   CheckCircle2, AlertCircle, ChevronRight, Shield,
   ScrollText, ShieldAlert, Mail, HelpCircle, ChevronDown,
-  ExternalLink,
+  ExternalLink, Lock as LockIcon,
 } from "lucide-react";
 
 function IconInstagram({ size = 16, className = "" }) {
@@ -522,6 +522,57 @@ export default function Settings() {
         </Section>
 
       </div>
+
+      {/* ══════════ Política de Privacidad (ancho completo) ══════════ */}
+      <Section icon={LockIcon} title="Política de Privacidad" subtitle="Última actualización: enero 2025 · Aplicable a todos los usuarios de SIGMAFAM" accent="violet">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-0">
+
+          {/* Columna izquierda */}
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-500 dark:text-violet-400 mb-2">1. Datos que recopilamos</p>
+            <TermItem number="•">
+              <strong className="text-slate-700 dark:text-slate-300">Datos de cuenta:</strong> nombre completo y correo electrónico proporcionados durante el registro.
+            </TermItem>
+            <TermItem number="•">
+              <strong className="text-slate-700 dark:text-slate-300">Datos de ubicación:</strong> coordenadas GPS generadas únicamente al momento de activar una alerta. No rastreamos tu ubicación en segundo plano.
+            </TermItem>
+            <TermItem number="•">
+              <strong className="text-slate-700 dark:text-slate-300">Datos de dispositivo:</strong> identificador único del dispositivo IoT vinculado a tu cuenta.
+            </TermItem>
+            <TermItem number="•">
+              <strong className="text-slate-700 dark:text-slate-300">Contactos de emergencia:</strong> nombre y número telefónico de las personas que tú registres voluntariamente.
+            </TermItem>
+
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-500 dark:text-violet-400 mt-5 mb-2">2. Cómo usamos tus datos</p>
+            <TermItem number="•">Enviar notificaciones de emergencia por WhatsApp a tus contactos registrados cuando se activa una alerta.</TermItem>
+            <TermItem number="•">Mostrar el historial de alertas y la ubicación asociada a ti y a los miembros de tu grupo familiar.</TermItem>
+            <TermItem number="•">Registrar eventos de auditoría internos para garantizar la integridad del sistema.</TermItem>
+            <TermItem number="•">Mejorar el funcionamiento general de la plataforma en el contexto del proyecto académico.</TermItem>
+          </div>
+
+          {/* Columna derecha */}
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-500 dark:text-violet-400 mb-2">3. Compartición de datos</p>
+            <TermItem number="•">
+              Tus datos <strong className="text-slate-700 dark:text-slate-300">no se venden ni se comparten</strong> con terceros, anunciantes ni servicios externos, salvo los necesarios para el funcionamiento del sistema (WhatsApp Business API de Meta, para el envío de alertas).
+            </TermItem>
+            <TermItem number="•">
+              Los miembros de tu grupo familiar pueden ver las alertas generadas dentro del grupo, incluyendo nombre de usuario y ubicación de la alerta.
+            </TermItem>
+
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-500 dark:text-violet-400 mt-5 mb-2">4. Seguridad</p>
+            <TermItem number="•">Las contraseñas se almacenan con hash bcrypt. Nunca guardamos contraseñas en texto plano.</TermItem>
+            <TermItem number="•">La comunicación entre la app y el servidor se realiza mediante HTTPS con tokens JWT de sesión.</TermItem>
+            <TermItem number="•">El acceso a los datos está restringido por autenticación y roles de usuario.</TermItem>
+
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-500 dark:text-violet-400 mt-5 mb-2">5. Tus derechos</p>
+            <TermItem number="•">Puedes solicitar la eliminación de tu cuenta y todos tus datos en cualquier momento escribiéndonos a <strong className="text-slate-700 dark:text-slate-300">sigmafam@castoresceti.com</strong>.</TermItem>
+            <TermItem number="•">Puedes modificar tus contactos de emergencia y datos de grupo en cualquier momento desde la aplicación.</TermItem>
+            <TermItem number="•">Al ser un proyecto académico sin fines de lucro, no aplicamos cookies de rastreo ni analítica de terceros.</TermItem>
+          </div>
+
+        </div>
+      </Section>
 
     </div>
   );
