@@ -6,8 +6,9 @@ import {
   Sun, Moon, Lock, LogOut, Eye, EyeOff,
   CheckCircle2, AlertCircle, ChevronRight, Shield,
   ScrollText, ShieldAlert, Mail, HelpCircle, ChevronDown,
-  ExternalLink, Ticket, Trash2, ArrowLeft, FileText,
+  ExternalLink, Ticket, Trash2, ArrowLeft, FileText, BookOpen,
 } from "lucide-react";
+import ManualView from "./_manual";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
@@ -140,7 +141,7 @@ function TermItem({ number, children }) {
 /* ═══════════════════════════════════════════════════════════ */
 /*  SUB-VISTA: LEGAL                                           */
 /* ═══════════════════════════════════════════════════════════ */
-function LegalView({ onBack }) {
+function LegalView({ onBack, onGoToManual }) {
   return (
     <div className="space-y-5">
       <button onClick={onBack}
@@ -157,6 +158,23 @@ function LegalView({ onBack }) {
           <p className="text-sm text-slate-500 dark:text-slate-500 mt-0.5">Términos, privacidad, contacto y ayuda</p>
         </div>
       </div>
+
+      {/* Manual de usuario — enlace destacado */}
+      <button
+        onClick={onGoToManual}
+        className="w-full flex items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-slate-900 dark:border-slate-600 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white transition-all group shadow-lg"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+            <BookOpen size={17} className="text-white" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-bold text-white">Manual de Usuario</p>
+            <p className="text-xs text-slate-400 mt-0.5">Guía completa de todas las funciones de SIGMAFAM</p>
+          </div>
+        </div>
+        <ChevronRight size={16} className="text-slate-400 group-hover:text-white transition-colors flex-shrink-0" />
+      </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
@@ -246,7 +264,7 @@ export default function Settings() {
   const { user, token, logout } = useAuth();
   const { dark, toggle } = useTheme();
   const navigate = useNavigate();
-  const [view, setView] = useState("main"); // "main" | "legal"
+  const [view, setView] = useState("main"); // "main" | "legal" | "manual"
 
   /* ── Contraseña ── */
   const [pwForm, setPwForm]     = useState({ current: "", next: "", confirm: "" });
@@ -368,8 +386,9 @@ export default function Settings() {
     CLOSED:      "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   };
 
-  /* ── Sub-vista legal ── */
-  if (view === "legal") return <LegalView onBack={() => setView("main")} />;
+  /* ── Sub-vistas ── */
+  if (view === "manual") return <ManualView onBack={() => setView("legal")} />;
+  if (view === "legal")  return <LegalView onBack={() => setView("main")} onGoToManual={() => setView("manual")} />;
 
   /* ─────────────────────────── RENDER PRINCIPAL ─────────────────────────── */
   return (
