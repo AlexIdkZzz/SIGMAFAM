@@ -24,6 +24,139 @@ function SourcePill({ source }) {
   return <Pill variant={source === "IOT" ? "slate" : "blue"}>{source}</Pill>;
 }
 
+function InfoRow({ label, value }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">{label}</span>
+      <span className="text-[12px] font-bold text-slate-700 dark:text-slate-300 break-all">{value}</span>
+    </div>
+  );
+}
+
+function SectionBlock({ title, children }) {
+  return (
+    <div className="space-y-3">
+      <h4 className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600 border-b border-slate-100 dark:border-slate-800 pb-2">{title}</h4>
+      {children}
+    </div>
+  );
+}
+
+function AlertDetailPanel({ detail, loading, onChangeStatus }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
+      </div>
+    );
+  }
+  if (!detail) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <AlertTriangle size={32} className="text-slate-200 dark:text-slate-800" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-slate-700 italic">
+          Selecciona una alerta
+        </p>
+      </div>
+    );
+  }
+
+  const elapsedMin = Math.floor((Date.now() - new Date(detail.createdAt)) / 60000);
+  const elapsed = elapsedMin < 60
+    ? `${elapsedMin} min`
+    : elapsedMin < 1440
+    ? `${Math.floor(elapsedMin / 60)} h ${elapsedMin % 60} min`
+    : `${Math.floor(elapsedMin / 1440)} días`;
+
+  const canAttend = detail.status !== "ATTENDED" && detail.status !== "CLOSED";
+  const canClose  = detail.status !== "CLOSED";
+
+  return (
+    <div className="space-y-6">
+      {/* Encabezado */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600 mb-1">Alerta</p>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white">#{detail.id}</h2>
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest mt-1 italic">
+            Activa hace {elapsed}
+          </p>
+        </div>
+        <StatusPill status={detail.status} />
+      </div>
+
+      {/* Acciones rápidas */}
+      {(canAttend || canClose) && (
+        <div className="flex gap-2">
+          {canAttend && (
+            <button
+              onClick={() => onChangeStatus(detail.id, "ATTENDED")}
+              className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+            >
+              Marcar Atendida
+            </button>
+          )}
+          {canClose && (
+            <button
+              onClick={() => onChangeStatus(detail.id, "CLOSED")}
+              className="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
+            >
+              Cerrar Alerta
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Info general */}
+      <SectionBlock title="Información General">
+        <div className="grid grid-cols-2 gap-4">
+          <InfoRow label="Origen" value={<SourcePill source={detail.source} />} />
+          <InfoRow label="Estado" value={<StatusPill status={detail.status} />} />
+          <InfoRow label="Creada" value={fmtTime(detail.createdAt)} />
+          {detail.closedAt && <InfoRow label="Cerrada" value={fmtTime(detail.closedAt)} />}
+        </div>
+      </SectionBlock>
+
+      {/* Miembro */}
+      <SectionBlock title="Miembro">
+        <div className="space-y-3">
+          <InfoRow label="Nombre" value={detail.user.name} />
+          <InfoRow label="Email" value={detail.user.email} />
+          {detail.group && <InfoRow label="Familia" value={detail.group} />}
+        </div>
+      </SectionBlock>
+
+      {/* Dispositivo (solo IOT) */}
+      {detail.source === "IOT" && (
+        <SectionBlock title="Dispositivo IoT">
+          <InfoRow
+            label="Identificador (UID)"
+            value={detail.device ?? "No disponible"}
+          />
+        </SectionBlock>
+      )}
+
+      {/* Ubicación */}
+      <SectionBlock title="Última Ubicación">
+        {detail.lastLocation ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <InfoRow label="Latitud" value={detail.lastLocation.lat.toFixed(6)} />
+              <InfoRow label="Longitud" value={detail.lastLocation.lng.toFixed(6)} />
+              <InfoRow label="Registrada" value={fmtTime(detail.lastLocation.at)} />
+            </div>
+            <MiniMap lat={detail.lastLocation.lat} lng={detail.lastLocation.lng} />
+          </div>
+        ) : (
+          <p className="text-[10px] text-slate-400 dark:text-slate-600 italic font-bold">
+            Sin datos de ubicación disponibles
+          </p>
+        )}
+      </SectionBlock>
+    </div>
+  );
+}
+
 const STATUS_OPTIONS = [
   { value: "ATTENDED", label: "Atendida", color: "text-blue-600 dark:text-blue-400" },
   { value: "CLOSED",   label: "Cerrada",  color: "text-green-600 dark:text-green-400" },
@@ -77,6 +210,7 @@ export default function Alerts() {
   const {
     alerts, selected, selectedId,
     loading, error,
+    alertDetail, detailLoading,
     selectAlert, simulateIncomingAlert,
     refreshActive, markAttended, closeAlert,
   } = useAlerts();
@@ -221,6 +355,18 @@ export default function Alerts() {
           </div>
         </Card>
       </div>
+
+      <Drawer
+        open={drawerOpen}
+        title="Detalle de Alerta"
+        onClose={() => setDrawerOpen(false)}
+      >
+        <AlertDetailPanel
+          detail={alertDetail}
+          loading={detailLoading}
+          onChangeStatus={handleChangeStatus}
+        />
+      </Drawer>
 
       <style>{`
         /* INYECCIÓN DE ESTILOS PARA FORZAR DARK MODE SI EL COMPONENTE UI FALLA */

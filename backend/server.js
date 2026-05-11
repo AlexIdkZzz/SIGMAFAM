@@ -722,6 +722,59 @@ app.post("/api/v1/alerts", authRequired, async (req, res) => {
   }
 });
 
+app.get("/api/v1/alerts/:id", authRequired, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: "INVALID_ID" });
+
+    const userIds      = await _getScopeUserIds(req.user.id);
+    const placeholders = userIds.map(() => "?").join(",");
+
+    const [rows] = await pool.execute(
+      `SELECT
+         a.id, a.source, a.status, a.created_at, a.closed_at,
+         u.full_name AS user_name, u.email AS user_email,
+         fg.name AS group_name,
+         d.device_uid,
+         al.lat, al.lng, al.recorded_at
+       FROM alerts a
+       JOIN users u ON u.id = a.user_id
+       LEFT JOIN family_groups fg ON fg.id = u.family_group_id
+       LEFT JOIN devices d ON d.id = a.device_id
+       LEFT JOIN alert_locations al ON al.id = (
+         SELECT id FROM alert_locations
+         WHERE alert_id = a.id
+         ORDER BY recorded_at DESC
+         LIMIT 1
+       )
+       WHERE a.id = ? AND a.user_id IN (${placeholders})`,
+      [id, ...userIds]
+    );
+
+    if (!rows.length) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const r = rows[0];
+    return res.json({
+      alert: {
+        id:        r.id,
+        source:    r.source,
+        status:    r.status,
+        createdAt: r.created_at,
+        closedAt:  r.closed_at ?? null,
+        user:      { name: r.user_name, email: r.user_email },
+        group:     r.group_name ?? null,
+        device:    r.device_uid ?? null,
+        lastLocation: r.lat != null
+          ? { lat: Number(r.lat), lng: Number(r.lng), at: r.recorded_at }
+          : null,
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 app.patch("/api/v1/alerts/:id/status", authRequired, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -732,13 +785,17 @@ app.patch("/api/v1/alerts/:id/status", authRequired, async (req, res) => {
     if (!allowed.includes(status))
       return res.status(400).json({ error: "INVALID_STATUS" });
 
-    await pool.execute(
-      `UPDATE alerts
-       SET status    = :status,
-           closed_at = CASE WHEN :status = 'CLOSED' THEN CURRENT_TIMESTAMP ELSE closed_at END
-       WHERE id = :id`,
-      { status, id }
-    );
+    if (status === "CLOSED") {
+      await pool.execute(
+        `UPDATE alerts SET status = ?, closed_at = NOW() WHERE id = ?`,
+        [status, id]
+      );
+    } else {
+      await pool.execute(
+        `UPDATE alerts SET status = ? WHERE id = ?`,
+        [status, id]
+      );
+    }
 
     await auditLog("ALERT_STATUS_CHANGE", req.user.id,
       `Alerta #${id} cambió a ${status}`, { alertId: id, newStatus: status });

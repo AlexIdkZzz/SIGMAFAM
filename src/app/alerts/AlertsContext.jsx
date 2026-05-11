@@ -8,10 +8,12 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 export function AlertsProvider({ children }) {
   const { token } = useAuth();
 
-  const [alerts, setAlerts]     = useState([]);
+  const [alerts, setAlerts]         = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [alertDetail, setAlertDetail]       = useState(null);
+  const [detailLoading, setDetailLoading]   = useState(false);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function authHeaders() {
@@ -81,7 +83,28 @@ export function AlertsProvider({ children }) {
 
   function markAttended(id) { return _changeStatus(id, "ATTENDED"); }
   function closeAlert(id)   { return _changeStatus(id, "CLOSED"); }
-  function selectAlert(id)  { setSelectedId(id); }
+
+  const fetchAlertDetail = useCallback(async (id) => {
+    if (!token || !id) return;
+    setDetailLoading(true);
+    setAlertDetail(null);
+    try {
+      const res  = await fetch(`${API_BASE}/alerts/${id}`, {
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) setAlertDetail(data.alert);
+    } catch {
+      // silent — el panel mostrará vacío
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [token]);
+
+  function selectAlert(id) {
+    setSelectedId(id);
+    fetchAlertDetail(id);
+  }
 
   const selected = useMemo(
     () => alerts.find((a) => a.id === selectedId) ?? null,
@@ -95,13 +118,15 @@ export function AlertsProvider({ children }) {
       selectedId,
       loading,
       error,
+      alertDetail,
+      detailLoading,
       selectAlert,
       refreshActive,
       simulateIncomingAlert,
       markAttended,
       closeAlert,
     }),
-    [alerts, selected, selectedId, loading, error]
+    [alerts, selected, selectedId, loading, error, alertDetail, detailLoading]
   );
 
   return <AlertsContext.Provider value={value}>{children}</AlertsContext.Provider>;
