@@ -25,6 +25,8 @@ export default function History() {
 
   const [filterStatus, setFilterStatus] = useState("");
   const [filterSource, setFilterSource] = useState("");
+  const [dateFrom, setDateFrom]         = useState("");
+  const [dateTo, setDateTo]             = useState("");
   const [page, setPage]                 = useState(1);
 
   const fetchHistory = useCallback(async () => {
@@ -35,6 +37,8 @@ export default function History() {
       const params = new URLSearchParams({ page, limit: 15 });
       if (filterStatus) params.set("status", filterStatus);
       if (filterSource) params.set("source", filterSource);
+      if (dateFrom)     params.set("date_from", dateFrom);
+      if (dateTo)       params.set("date_to", dateTo);
 
       const res = await fetch(`${API_BASE}/alerts/history?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -49,7 +53,7 @@ export default function History() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, filterStatus, filterSource]);
+  }, [token, page, filterStatus, filterSource, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchHistory();
@@ -60,6 +64,14 @@ export default function History() {
     setFilterSource(newSource);
     setPage(1);
   }
+
+  function clearAllFilters() {
+    setFilterStatus(""); setFilterSource("");
+    setDateFrom(""); setDateTo("");
+    setPage(1);
+  }
+
+  const hasFilters = filterStatus || filterSource || dateFrom || dateTo;
 
   function formatDate(iso) {
     if (!iso) return "—";
@@ -120,10 +132,29 @@ export default function History() {
             <option value="IOT">Dispositivo</option>
           </select>
         </div>
-        {(filterStatus || filterSource) && (
+        <div>
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Desde</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Hasta</label>
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-500"
+          />
+        </div>
+        {hasFilters && (
           <div className="flex items-end">
             <button
-              onClick={() => applyFilter("", "")}
+              onClick={clearAllFilters}
               className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
             >
               Limpiar filtros ✕

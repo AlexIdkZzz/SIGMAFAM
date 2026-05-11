@@ -630,6 +630,8 @@ app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
 
     const statusFilter = req.query.status?.toUpperCase();
     const sourceFilter = req.query.source?.toUpperCase();
+    const dateFrom     = req.query.date_from; // YYYY-MM-DD
+    const dateTo       = req.query.date_to;   // YYYY-MM-DD
 
     const validStatuses = ["RECEIVED", "ACTIVE", "ATTENDED", "CLOSED"];
     const validSources  = ["IOT", "WEB"];
@@ -645,6 +647,8 @@ app.get("/api/v1/alerts/history", authRequired, async (req, res) => {
       conditions.push("a.source = ?");
       params.push(sourceFilter);
     }
+    if (dateFrom) { conditions.push("DATE(a.created_at) >= ?"); params.push(dateFrom); }
+    if (dateTo)   { conditions.push("DATE(a.created_at) <= ?"); params.push(dateTo); }
 
     const where = conditions.join(" AND ");
 
@@ -1566,6 +1570,9 @@ app.get("/api/v1/admin/alerts", authRequired, adminRequired, async (req, res) =>
     const offset = (page - 1) * limit;
     const status = req.query.status?.toUpperCase();
 
+    const dateFrom = req.query.date_from;
+    const dateTo   = req.query.date_to;
+
     const conditions = ["1=1"];
     const params     = [];
 
@@ -1573,6 +1580,8 @@ app.get("/api/v1/admin/alerts", authRequired, adminRequired, async (req, res) =>
       conditions.push("a.status = ?");
       params.push(status);
     }
+    if (dateFrom) { conditions.push("DATE(a.created_at) >= ?"); params.push(dateFrom); }
+    if (dateTo)   { conditions.push("DATE(a.created_at) <= ?"); params.push(dateTo); }
 
     const where = conditions.join(" AND ");
 
@@ -1608,6 +1617,51 @@ app.get("/api/v1/admin/alerts", authRequired, adminRequired, async (req, res) =>
     });
   } catch (e) {
     console.error("[Admin/Alerts]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
+ * GET /api/v1/admin/alerts/export
+ * Exporta todas las alertas filtradas (sin paginación, máx 10 000)
+ */
+app.get("/api/v1/admin/alerts/export", authRequired, adminRequired, async (req, res) => {
+  try {
+    const status   = req.query.status?.toUpperCase();
+    const dateFrom = req.query.date_from;
+    const dateTo   = req.query.date_to;
+
+    const conditions = ["1=1"];
+    const params     = [];
+
+    if (status && ["RECEIVED","ACTIVE","ATTENDED","CLOSED"].includes(status)) {
+      conditions.push("a.status = ?"); params.push(status);
+    }
+    if (dateFrom) { conditions.push("DATE(a.created_at) >= ?"); params.push(dateFrom); }
+    if (dateTo)   { conditions.push("DATE(a.created_at) <= ?"); params.push(dateTo); }
+
+    const where = conditions.join(" AND ");
+
+    const [rows] = await pool.execute(
+      `SELECT a.id, a.status, a.source, a.created_at, a.closed_at,
+              u.full_name AS user_name, u.email AS user_email,
+              fg.name AS group_name,
+              al.lat, al.lng
+       FROM alerts a
+       JOIN users u ON u.id = a.user_id
+       LEFT JOIN family_groups fg ON fg.id = u.family_group_id
+       LEFT JOIN alert_locations al ON al.id = (
+         SELECT id FROM alert_locations WHERE alert_id = a.id
+         ORDER BY recorded_at DESC LIMIT 1
+       )
+       WHERE ${where}
+       ORDER BY a.created_at DESC
+       LIMIT 10000`,
+      params
+    );
+    return res.json({ alerts: rows });
+  } catch (e) {
+    console.error("[Admin/Alerts/Export]", e);
     return res.status(500).json({ error: "SERVER_ERROR" });
   }
 });
