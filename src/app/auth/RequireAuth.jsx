@@ -27,7 +27,7 @@ export default function RequireAuth({ children, allowRoles }) {
   if (!user) return <Navigate to="/login" replace />;
 
   // Si el usuario no tiene rol asignado, tratarlo como MIEMBRO (igual que el Sidebar)
-  const effectiveRole = user.role ?? "MIEMBRO";
+  const effectiveRole = user.role || "MIEMBRO";
 
   // Si se requiere rol, validar contra el rol efectivo
   if (allowRoles && !allowRoles.includes(effectiveRole)) {

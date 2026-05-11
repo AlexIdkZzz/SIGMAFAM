@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
             id:       payload.id,
             email:    payload.email,
             fullName: payload.fullName ?? "",
-            role:     payload.role?.toUpperCase() ?? null,
+            role:     payload.role?.toUpperCase() || null,
           });
         }
       } catch {
@@ -48,7 +48,7 @@ export function AuthProvider({ children }) {
     const { access_token, user: userData } = data;
     localStorage.setItem("sigmafam_token", access_token);
     setToken(access_token);
-    const normalizedUser = { ...userData, role: userData.role?.toUpperCase() ?? null };
+    const normalizedUser = { ...userData, role: userData.role?.toUpperCase() || null };
     setUser(normalizedUser);
     return normalizedUser;
   }
@@ -81,7 +81,7 @@ export function AuthProvider({ children }) {
         id:       payload.id,
         email:    payload.email,
         fullName: payload.fullName ?? "",
-        role:     payload.role?.toUpperCase() ?? null,
+        role:     payload.role?.toUpperCase() || null,
       });
     } catch (e) {
       console.error("[AuthContext] updateAuth: token inválido", e);
