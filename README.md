@@ -377,7 +377,7 @@ PATCH  /api/v1/admin/tickets/:id      Gestionar ticket
 
 | Nombre | Control escolar | Rol |
 |--------|----------------|-----|
-| Yael De Alba | 21300160 | Desarrollo fullstack, arquitectura y diseño |
+| Yael De Alba | 21300160 | Desarrollo fullstack, arquitectura y diseño. CEO. |
 | Francisco Yañez | 22300208 | Backend e integración IoT |
 | Uziel Noriega | 22300232 | Frontend y UX |
 | Cristian Oñate | 22300198 | Hardware IoT y comunicaciones |
