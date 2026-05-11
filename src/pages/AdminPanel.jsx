@@ -6,6 +6,7 @@ import AdminUsers from "./admin/AdminUsers";
 import AdminGroups from "./admin/AdminGroups";
 import AdminDevices from "./admin/AdminDevices";
 import AdminAlerts from "./admin/AdminAlerts";
+import AdminTickets from "./admin/AdminTickets";
 
 const NAV_ITEMS = [
   { id: "overview", label: "Resumen global",   icon: <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg> },
@@ -13,6 +14,7 @@ const NAV_ITEMS = [
   { id: "groups",   label: "Grupos familiares", icon: <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4"><circle cx="5" cy="6" r="2.5"/><circle cx="11" cy="6" r="2.5"/><path d="M1 13c0-2.2 1.8-4 4-4s4 1.8 4 4" opacity=".6"/><path d="M7 13c0-2.2 1.8-4 4-4s4 1.8 4 4" opacity=".6"/></svg> },
   { id: "devices",  label: "Dispositivos",      icon: <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/><circle cx="8" cy="8.5" r="1.5"/></svg> },
   { id: "alerts",   label: "Todas las alertas", icon: <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4"><path d="M8 1L1 13h14L8 1z"/><path d="M8 6v4M8 11.5v.5" stroke="white" strokeWidth="1.2" fill="none"/></svg> },
+  { id: "tickets",  label: "Tickets de soporte", icon: <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4"><path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V3zm0 5a1 1 0 011-1h10a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V8zm0 5a1 1 0 011-1h6a1 1 0 010 2H3a1 1 0 01-1-1z"/></svg> },
 ];
 
 export default function AdminPanel() {
@@ -153,6 +155,7 @@ export default function AdminPanel() {
           {view === "groups"   && <AdminGroups />}
           {view === "devices"  && <AdminDevices />}
           {view === "alerts"   && <AdminAlerts />}
+          {view === "tickets"  && <AdminTickets />}
         </main>
       </div>
     </div>

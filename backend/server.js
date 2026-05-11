@@ -1676,6 +1676,136 @@ app.get("/api/v1/heatmap", authRequired, async (req, res) => {
   }
 });
 
+/* ═══════════════════════════ TICKETS ═══════════════════════════ */
+
+const TICKET_TYPES = [
+  "REMOVE_FROM_GROUP", "DELETE_DATA", "CHANGE_NAME",
+  "CHANGE_PASSWORD", "BUG_REPORT", "OTHER",
+];
+
+// Crear tabla al iniciar si no existe
+pool.execute(`
+  CREATE TABLE IF NOT EXISTS tickets (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    user_id      INT NOT NULL,
+    type         VARCHAR(50) NOT NULL,
+    description  TEXT,
+    status       ENUM('OPEN','IN_PROGRESS','CLOSED') DEFAULT 'OPEN',
+    admin_note   TEXT,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`).catch((e) => console.error("[Tickets/Init]", e));
+
+// Crear ticket
+app.post("/api/v1/tickets", authRequired, async (req, res) => {
+  try {
+    const { type, description } = req.body || {};
+    if (!type || !TICKET_TYPES.includes(type))
+      return res.status(400).json({ error: "INVALID_TYPE" });
+
+    const [r] = await pool.execute(
+      `INSERT INTO tickets (user_id, type, description) VALUES (?, ?, ?)`,
+      [req.user.id, type, description?.trim() || null]
+    );
+    await auditLog("TICKET_CREATED", req.user.id,
+      `Ticket #${r.insertId} (${type})`, { ticketId: r.insertId });
+    return res.status(201).json({ ticket_id: r.insertId });
+  } catch (e) {
+    console.error("[Tickets/Create]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Mis tickets
+app.get("/api/v1/tickets/mine", authRequired, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT id, type, description, status, admin_note, created_at
+       FROM tickets WHERE user_id = ? ORDER BY created_at DESC LIMIT 10`,
+      [req.user.id]
+    );
+    return res.json({ tickets: rows });
+  } catch (e) {
+    console.error("[Tickets/Mine]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Admin: ver todos los tickets
+app.get("/api/v1/admin/tickets", authRequired, adminRequired, async (req, res) => {
+  try {
+    const status = req.query.status?.toUpperCase();
+    const where  = status && ["OPEN","IN_PROGRESS","CLOSED"].includes(status)
+      ? "WHERE t.status = ?" : "";
+    const params = status && ["OPEN","IN_PROGRESS","CLOSED"].includes(status)
+      ? [status] : [];
+
+    const [rows] = await pool.execute(
+      `SELECT t.id, t.type, t.description, t.status, t.admin_note, t.created_at, t.updated_at,
+              u.full_name AS user_name, u.email AS user_email
+       FROM tickets t
+       JOIN users u ON u.id = t.user_id
+       ${where}
+       ORDER BY FIELD(t.status,'OPEN','IN_PROGRESS','CLOSED'), t.created_at DESC`,
+      params
+    );
+    return res.json({ tickets: rows });
+  } catch (e) {
+    console.error("[Admin/Tickets]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Admin: actualizar ticket
+app.patch("/api/v1/admin/tickets/:id", authRequired, adminRequired, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { status, admin_note } = req.body || {};
+    if (!id) return res.status(400).json({ error: "INVALID_ID" });
+    if (status && !["OPEN","IN_PROGRESS","CLOSED"].includes(status))
+      return res.status(400).json({ error: "INVALID_STATUS" });
+
+    await pool.execute(
+      `UPDATE tickets
+       SET status     = COALESCE(?, status),
+           admin_note = COALESCE(?, admin_note)
+       WHERE id = ?`,
+      [status ?? null, admin_note ?? null, id]
+    );
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Admin/Tickets/Update]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/* ═══════════════════════════ DELETE ACCOUNT ═══════════════════════════ */
+
+app.delete("/api/v1/user/account", authRequired, async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    const [[user]] = await pool.execute(
+      `SELECT password_hash FROM users WHERE id = ? LIMIT 1`, [req.user.id]
+    );
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) return res.status(401).json({ error: "WRONG_PASSWORD" });
+
+    await auditLog("USER_SELF_DELETE", req.user.id,
+      `Usuario #${req.user.id} eliminó su cuenta`, {});
+    await pool.execute(`DELETE FROM users WHERE id = ?`, [req.user.id]);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[User/DeleteAccount]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 /* ═══════════════════════════ START ═══════════════════════════ */
 
 const PORT = process.env.PORT || 4000;
