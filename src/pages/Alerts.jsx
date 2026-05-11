@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageShell, Card, Pill, Button } from "./_ui";
 import Drawer from "./_drawer";
 import ConfirmModal from "./_modal";
 import { useAlerts } from "../app/alerts/AlertsContext";
 import MiniMap from "../app/maps/MiniMap";
-import { LayoutPanelLeft, RefreshCw, Zap, AlertTriangle } from "lucide-react";
+import { LayoutPanelLeft, RefreshCw, Zap, AlertTriangle, ChevronDown, Check } from "lucide-react";
 
 function fmtTime(iso) {
   try { return new Date(iso).toLocaleString("es-MX"); }
@@ -24,14 +24,67 @@ function SourcePill({ source }) {
   return <Pill variant={source === "IOT" ? "slate" : "blue"}>{source}</Pill>;
 }
 
+const STATUS_OPTIONS = [
+  { value: "ATTENDED", label: "Atendida", color: "text-blue-600 dark:text-blue-400" },
+  { value: "CLOSED",   label: "Cerrada",  color: "text-green-600 dark:text-green-400" },
+];
+
+function StatusDropdown({ alertId, currentStatus, onChangeStatus }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  const options = STATUS_OPTIONS.filter((o) => o.value !== currentStatus);
+
+  return (
+    <div ref={ref} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+      >
+        Estado
+        <ChevronDown size={10} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl shadow-black/10 dark:shadow-black/40 overflow-hidden">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { onChangeStatus(alertId, opt.value); setOpen(false); }}
+              className={`w-full flex items-center gap-2 px-4 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${opt.color}`}
+            >
+              <Check size={10} className="opacity-0 group-first:opacity-100" />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Alerts() {
   const nav = useNavigate();
   const {
     alerts, selected, selectedId,
     loading, error,
     selectAlert, simulateIncomingAlert,
-    refreshActive,
+    refreshActive, markAttended, closeAlert,
   } = useAlerts();
+
+  function handleChangeStatus(id, status) {
+    if (status === "ATTENDED") markAttended(id);
+    else if (status === "CLOSED") closeAlert(id);
+  }
 
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -152,6 +205,11 @@ export default function Alerts() {
                             >
                               Mapa
                             </button>
+                            <StatusDropdown
+                              alertId={a.id}
+                              currentStatus={a.status}
+                              onChangeStatus={handleChangeStatus}
+                            />
                           </div>
                         </td>
                       </tr>
