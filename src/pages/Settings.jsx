@@ -161,7 +161,7 @@ function LegalView({ onBack }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
         {/* TyC */}
-        <Section icon={ScrollText} title="Términos y Condiciones" subtitle="Última actualización: enero 2025" accent="slate">
+        <Section icon={ScrollText} title="Términos y Condiciones" subtitle="Última actualización: mayo 2026" accent="slate">
           <TermItem number="1">El uso de SIGMAFAM implica la aceptación plena de estos términos. Si no estás de acuerdo, debes discontinuar el uso de la aplicación.</TermItem>
           <TermItem number="2">SIGMAFAM es exclusivamente para uso personal y familiar. Queda prohibido su uso con fines comerciales sin autorización expresa.</TermItem>
           <TermItem number="3">El usuario es responsable de mantener la confidencialidad de sus credenciales y de todas las actividades realizadas bajo su cuenta.</TermItem>
@@ -186,7 +186,7 @@ function LegalView({ onBack }) {
       </div>
 
       {/* Política de privacidad (ancho completo) */}
-      <Section icon={Lock} title="Política de Privacidad" subtitle="Última actualización: enero 2025" accent="violet">
+      <Section icon={Lock} title="Política de Privacidad" subtitle="Última actualización: mayo 2026" accent="violet">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-500 dark:text-violet-400 mb-2">1. Datos que recopilamos</p>
@@ -222,7 +222,7 @@ function LegalView({ onBack }) {
             <ContactLink icon={IconInstagram} label="Instagram" value="@alexidk_zzz" href="https://www.instagram.com/alexidk_zzz/" accent="text-pink-500 dark:text-pink-400" />
             <ContactLink icon={IconGithub} label="GitHub" value="github.com/AlexIdkZzz" href="https://github.com/AlexIdkZzz" accent="text-slate-700 dark:text-slate-300" />
           </div>
-          <p className="mt-4 text-xs text-slate-400 dark:text-slate-600 italic">Proyecto académico — CETI Tonalá 2025. Generación 21300.</p>
+          <p className="mt-4 text-xs text-slate-400 dark:text-slate-600 italic">Proyecto académico - CETI Tonalá 2026.</p>
         </Section>
 
         {/* FAQ */}
