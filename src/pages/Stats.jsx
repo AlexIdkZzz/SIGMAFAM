@@ -156,6 +156,7 @@ export default function Stats() {
   const [error, setError]               = useState("");
   const [showRiskMap, setShowRiskMap]   = useState(false);
   const [isDark, setIsDark]             = useState(false);
+  const [retryKey, setRetryKey]         = useState(0);
 
   // Detectar modo oscuro vía MutationObserver
   useEffect(() => {
@@ -168,6 +169,8 @@ export default function Stats() {
 
   useEffect(() => {
     if (!token) return;
+    setLoading(true);
+    setError("");
     fetch(`${API_BASE}/stats`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -178,16 +181,36 @@ export default function Stats() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, retryKey]);
 
-  if (loading || error) {
+  if (loading) {
     return (
       <PageShell title="Dashboard Operativo">
         <div className="flex items-center justify-center py-32 gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent" />
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">
-            {error || "Cargando estadísticas..."}
+            Cargando estadísticas...
           </span>
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageShell title="Dashboard Operativo">
+        <div className="flex flex-col items-center justify-center py-32 gap-4">
+          <AlertCircle size={36} className="text-red-400" />
+          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+            No se pudieron cargar las estadísticas
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">{error}</p>
+          <button
+            onClick={() => setRetryKey(k => k + 1)}
+            className="mt-2 px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 dark:hover:bg-slate-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
+          >
+            Reintentar
+          </button>
         </div>
       </PageShell>
     );

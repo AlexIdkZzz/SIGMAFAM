@@ -885,44 +885,58 @@ app.post("/api/v1/iot/alert", async (req, res) => {
 
 app.get("/api/v1/stats", authRequired, async (req, res) => {
   try {
-    const userIds = await _getScopeUserIds(req.user.id);
-    const ph = userIds.map(() => "?").join(",");
+    const isAdmin = req.user.role === "ADMIN";
+
+    let alertsWhere, alertsParams, hotspotWhere, hotspotParams;
+    if (isAdmin) {
+      alertsWhere   = "1=1";
+      alertsParams  = [];
+      hotspotWhere  = "1=1";
+      hotspotParams = [];
+    } else {
+      const userIds = await _getScopeUserIds(req.user.id);
+      const ph = userIds.map(() => "?").join(",");
+      alertsWhere   = `user_id IN (${ph})`;
+      alertsParams  = userIds;
+      hotspotWhere  = `a.user_id IN (${ph})`;
+      hotspotParams = userIds;
+    }
 
     const [byStatus] = await pool.execute(
-      `SELECT status, COUNT(*) AS total FROM alerts WHERE user_id IN (${ph}) GROUP BY status`,
-      userIds
+      `SELECT status, COUNT(*) AS total FROM alerts WHERE ${alertsWhere} GROUP BY status`,
+      alertsParams
     );
     const [byDay] = await pool.execute(
       `SELECT DATE(created_at) AS day, COUNT(*) AS total
        FROM alerts
-       WHERE user_id IN (${ph}) AND created_at >= NOW() - INTERVAL 30 DAY
+       WHERE ${alertsWhere} AND created_at >= NOW() - INTERVAL 30 DAY
        GROUP BY DATE(created_at)
        ORDER BY day ASC`,
-      userIds
+      alertsParams
     );
     const [bySource] = await pool.execute(
-      `SELECT source, COUNT(*) AS total FROM alerts WHERE user_id IN (${ph}) GROUP BY source`,
-      userIds
+      `SELECT source, COUNT(*) AS total FROM alerts WHERE ${alertsWhere} GROUP BY source`,
+      alertsParams
     );
     const [hotspots] = await pool.execute(
       `SELECT ROUND(al.lat, 3) AS lat, ROUND(al.lng, 3) AS lng, COUNT(*) AS intensity
        FROM alert_locations al
        JOIN alerts a ON a.id = al.alert_id
-       WHERE a.user_id IN (${ph})
+       WHERE ${hotspotWhere}
        GROUP BY ROUND(al.lat, 3), ROUND(al.lng, 3)
        ORDER BY intensity DESC
        LIMIT 50`,
-      userIds
+      hotspotParams
     );
     const [avgTime] = await pool.execute(
       `SELECT ROUND(AVG(TIMESTAMPDIFF(MINUTE, created_at, closed_at)), 1) AS avg_minutes
        FROM alerts
-       WHERE user_id IN (${ph}) AND status = 'CLOSED' AND closed_at IS NOT NULL`,
-      userIds
+       WHERE ${alertsWhere} AND status = 'CLOSED' AND closed_at IS NOT NULL`,
+      alertsParams
     );
     const [total] = await pool.execute(
-      `SELECT COUNT(*) AS total FROM alerts WHERE user_id IN (${ph})`,
-      userIds
+      `SELECT COUNT(*) AS total FROM alerts WHERE ${alertsWhere}`,
+      alertsParams
     );
 
     return res.json({
@@ -1737,8 +1751,8 @@ const TICKET_TYPES = [
   "CHANGE_PASSWORD", "BUG_REPORT", "OTHER",
 ];
 
-// Crear tabla al iniciar si no existe
-pool.execute(`
+// Crear tabla al iniciar si no existe (pool.query para DDL, no execute)
+pool.query(`
   CREATE TABLE IF NOT EXISTS tickets (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     user_id      INT NOT NULL,
@@ -1760,8 +1774,8 @@ app.post("/api/v1/tickets", authRequired, async (req, res) => {
       return res.status(400).json({ error: "INVALID_TYPE" });
 
     const [r] = await pool.execute(
-      `INSERT INTO tickets (user_id, type, description) VALUES (?, ?, ?)`,
-      [req.user.id, type, description?.trim() || null]
+      `INSERT INTO tickets (user_id, type, description) VALUES (:userId, :type, :description)`,
+      { userId: req.user.id, type, description: description?.trim() || null }
     );
     await auditLog("TICKET_CREATED", req.user.id,
       `Ticket #${r.insertId} (${type})`, { ticketId: r.insertId });
@@ -1777,8 +1791,8 @@ app.get("/api/v1/tickets/mine", authRequired, async (req, res) => {
   try {
     const [rows] = await pool.execute(
       `SELECT id, type, description, status, admin_note, created_at
-       FROM tickets WHERE user_id = ? ORDER BY created_at DESC LIMIT 10`,
-      [req.user.id]
+       FROM tickets WHERE user_id = :userId ORDER BY created_at DESC LIMIT 10`,
+      { userId: req.user.id }
     );
     return res.json({ tickets: rows });
   } catch (e) {
@@ -1791,10 +1805,9 @@ app.get("/api/v1/tickets/mine", authRequired, async (req, res) => {
 app.get("/api/v1/admin/tickets", authRequired, adminRequired, async (req, res) => {
   try {
     const status = req.query.status?.toUpperCase();
-    const where  = status && ["OPEN","IN_PROGRESS","CLOSED"].includes(status)
-      ? "WHERE t.status = ?" : "";
-    const params = status && ["OPEN","IN_PROGRESS","CLOSED"].includes(status)
-      ? [status] : [];
+    const validStatus = ["OPEN","IN_PROGRESS","CLOSED"].includes(status ?? "");
+    const where  = validStatus ? "WHERE t.status = :status" : "";
+    const params = validStatus ? { status } : {};
 
     const [rows] = await pool.execute(
       `SELECT t.id, t.type, t.description, t.status, t.admin_note, t.created_at, t.updated_at,
@@ -1823,10 +1836,10 @@ app.patch("/api/v1/admin/tickets/:id", authRequired, adminRequired, async (req, 
 
     await pool.execute(
       `UPDATE tickets
-       SET status     = COALESCE(?, status),
-           admin_note = COALESCE(?, admin_note)
-       WHERE id = ?`,
-      [status ?? null, admin_note ?? null, id]
+       SET status     = COALESCE(:status, status),
+           admin_note = COALESCE(:adminNote, admin_note)
+       WHERE id = :id`,
+      { status: status ?? null, adminNote: admin_note ?? null, id }
     );
     return res.json({ ok: true });
   } catch (e) {
@@ -1843,7 +1856,7 @@ app.delete("/api/v1/user/account", authRequired, async (req, res) => {
     if (!password) return res.status(400).json({ error: "MISSING_FIELDS" });
 
     const [[user]] = await pool.execute(
-      `SELECT password_hash FROM users WHERE id = ? LIMIT 1`, [req.user.id]
+      `SELECT password_hash FROM users WHERE id = :id LIMIT 1`, { id: req.user.id }
     );
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
@@ -1852,7 +1865,7 @@ app.delete("/api/v1/user/account", authRequired, async (req, res) => {
 
     await auditLog("USER_SELF_DELETE", req.user.id,
       `Usuario #${req.user.id} eliminó su cuenta`, {});
-    await pool.execute(`DELETE FROM users WHERE id = ?`, [req.user.id]);
+    await pool.execute(`DELETE FROM users WHERE id = :id`, { id: req.user.id });
     return res.json({ ok: true });
   } catch (e) {
     console.error("[User/DeleteAccount]", e);
