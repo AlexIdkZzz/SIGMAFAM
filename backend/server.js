@@ -1786,6 +1786,90 @@ app.get("/api/v1/admin/devices", authRequired, adminRequired, async (req, res) =
 });
 
 /**
+ * GET /api/v1/admin/devices/metrics
+ * Todos los dispositivos con métricas enriquecidas:
+ *   - battery_level     (último valor reportado en alert_locations o columna dedicada)
+ *   - alert_total       (total de alertas del propietario)
+ *   - alert_active      (alertas en estado RECEIVED / ACTIVE / ATTENDED)
+ *   - last_lat / last_lng (coords de la última alert_location del propietario)
+ *
+ * Se agrega ANTES del endpoint DELETE /api/v1/admin/devices/:id en server.js
+ */
+app.get("/api/v1/admin/devices/metrics", authRequired, adminRequired, async (req, res) => {
+  try {
+    // 1. Traer todos los dispositivos con datos de propietario y grupo
+    const [rows] = await pool.execute(
+      `SELECT
+         d.id,
+         d.device_uid,
+         d.last_seen_at,
+         d.created_at,
+         /* battery_level: columna opcional; si no existe devuelve NULL */
+         IF(
+           (SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'devices'
+              AND COLUMN_NAME = 'battery_level') > 0,
+           d.battery_level,
+           NULL
+         ) AS battery_level,
+         u.id        AS user_id,
+         u.full_name AS owner_name,
+         u.email     AS owner_email,
+         fg.name     AS group_name
+       FROM devices d
+       LEFT JOIN users u  ON u.id  = d.user_id
+       LEFT JOIN family_groups fg ON fg.id = u.family_group_id
+       ORDER BY d.created_at DESC`
+    );
+
+    // 2. Para cada dispositivo obtener métricas de alertas y última ubicación
+    for (const dev of rows) {
+      if (!dev.user_id) {
+        dev.alert_total  = 0;
+        dev.alert_active = 0;
+        dev.last_lat     = null;
+        dev.last_lng     = null;
+        continue;
+      }
+
+      // Conteo total y activos
+      const [[counts]] = await pool.execute(
+        `SELECT
+           COUNT(*)                                         AS total,
+           SUM(status IN ('RECEIVED','ACTIVE','ATTENDED')) AS active
+         FROM alerts
+         WHERE user_id = :userId`,
+        { userId: dev.user_id }
+      );
+      dev.alert_total  = counts.total  ?? 0;
+      dev.alert_active = counts.active ?? 0;
+
+      // Última ubicación registrada para este usuario
+      const [[loc]] = await pool.execute(
+        `SELECT al.lat, al.lng
+         FROM alert_locations al
+         JOIN alerts a ON a.id = al.alert_id
+         WHERE a.user_id = :userId
+         ORDER BY al.recorded_at DESC
+         LIMIT 1`,
+        { userId: dev.user_id }
+      );
+      dev.last_lat = loc?.lat ?? null;
+      dev.last_lng = loc?.lng ?? null;
+
+      // Limpiar campo interno antes de enviar
+      delete dev.user_id;
+    }
+
+    return res.json({ devices: rows });
+  } catch (e) {
+    console.error("[Admin/Devices/Metrics]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+/**
  * DELETE /api/v1/admin/devices/:id
  * Desvincular dispositivo
  */
