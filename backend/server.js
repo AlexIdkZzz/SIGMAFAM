@@ -114,6 +114,214 @@ async function sendEmergencyMessages(userId, userName, lat, lng) {
 }
 
 /**
+ * Envía correos de emergencia a TODOS los miembros del grupo familiar del usuario.
+ * Incluye mapa estático, hora, lugar y enlace directo a la alerta.
+ * Best-effort: no lanza error si falla.
+ */
+async function sendEmergencyEmails(userId, userName, alertId, lat, lng, source = "WEB") {
+  try {
+    // 1. Obtener el grupo familiar del usuario que activó la alerta
+    const [userRows] = await pool.execute(
+      `SELECT family_group_id, email FROM users WHERE id = :userId LIMIT 1`,
+      { userId }
+    );
+    const triggerer = userRows[0];
+    if (!triggerer) return;
+
+    // 2. Obtener todos los miembros del grupo (o solo el usuario si no tiene grupo)
+    let recipients = [];
+    if (triggerer.family_group_id) {
+      const [members] = await pool.execute(
+        `SELECT full_name, email FROM users
+         WHERE family_group_id = :groupId AND id != :userId`,
+        { groupId: triggerer.family_group_id, userId }
+      );
+      recipients = members;
+    }
+
+    // Si no hay otros miembros no hay a quién notificar por email
+    if (!recipients.length) return;
+
+    // 3. Preparar datos del correo
+    const now = new Date();
+    const timeStr = now.toLocaleString("es-MX", {
+      timeZone: "America/Mexico_City",
+      day: "2-digit", month: "long", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hour12: true,
+    });
+
+    const hasLocation = typeof lat === "number" && typeof lng === "number";
+    const mapsUrl     = hasLocation
+      ? `https://maps.google.com/?q=${lat},${lng}`
+      : null;
+
+    // Mapa estático via OpenStreetMap + staticmap (sin API key)
+    const staticMapUrl = hasLocation
+      ? `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=600x300&maptype=mapnik&markers=${lat},${lng},red-pushpin`
+      : null;
+
+    const alertUrl    = `${process.env.APP_URL ?? "https://sigmafam.up.railway.app"}/app/alerts`;
+    const sourceLabel = source === "IOT" ? "Dispositivo IoT (botón físico)" : "Aplicación web";
+    const locationText = hasLocation
+      ? `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+      : "No disponible";
+
+    // 4. HTML del correo
+    const buildHtml = (recipientName) => `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚠️ Alerta de emergencia — SIGMAFAM</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+          <!-- Header rojo de alerta -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:32px;text-align:center;">
+              <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:12px;">⚠️</div>
+              <h1 style="margin:0;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">ALERTA DE EMERGENCIA</h1>
+              <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.8);letter-spacing:0.05em;">SIGMAFAM · Sistema de Seguridad Familiar</p>
+            </td>
+          </tr>
+
+          <!-- Saludo -->
+          <tr>
+            <td style="padding:28px 32px 0;">
+              <p style="margin:0;font-size:15px;color:#475569;">
+                Hola <strong style="color:#0f172a;">${recipientName}</strong>, un miembro de tu grupo familiar ha activado una alerta de emergencia.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Tarjeta de datos de la alerta -->
+          <tr>
+            <td style="padding:20px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:14px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px 24px;border-bottom:1px solid #fecaca;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#ef4444;">Quién activó la alerta</p>
+                    <p style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">${userName}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:20px 24px;border-bottom:1px solid #fecaca;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#ef4444;">Cuándo</p>
+                    <p style="margin:0;font-size:15px;font-weight:600;color:#1e293b;">${timeStr} (hora Ciudad de México)</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:20px 24px;border-bottom:1px solid #fecaca;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#ef4444;">Origen</p>
+                    <p style="margin:0;font-size:15px;font-weight:600;color:#1e293b;">${sourceLabel}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#ef4444;">Coordenadas GPS</p>
+                    <p style="margin:0;font-size:15px;font-weight:600;color:#1e293b;font-family:monospace;">${locationText}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          ${staticMapUrl ? `
+          <!-- Mapa estático -->
+          <tr>
+            <td style="padding:0 32px 20px;">
+              <p style="margin:0 0 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#64748b;">Ubicación aproximada</p>
+              <a href="${mapsUrl}" target="_blank" style="display:block;border-radius:12px;overflow:hidden;border:1.5px solid #e2e8f0;text-decoration:none;">
+                <img
+                  src="${staticMapUrl}"
+                  alt="Mapa de la ubicación de la alerta"
+                  width="516"
+                  style="display:block;width:100%;height:auto;max-height:260px;object-fit:cover;"
+                />
+                <div style="background:#f8fafc;padding:10px 14px;text-align:center;">
+                  <span style="font-size:11px;color:#64748b;font-weight:600;">🗺 Ver en Google Maps →</span>
+                </div>
+              </a>
+            </td>
+          </tr>
+          ` : `
+          <!-- Sin ubicación -->
+          <tr>
+            <td style="padding:0 32px 20px;">
+              <div style="background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:20px;text-align:center;">
+                <p style="margin:0;font-size:13px;color:#94a3b8;">📍 No se registraron coordenadas GPS en esta alerta</p>
+              </div>
+            </td>
+          </tr>
+          `}
+
+          <!-- CTA: Ver alerta -->
+          <tr>
+            <td style="padding:0 32px 28px;text-align:center;">
+              <a
+                href="${alertUrl}"
+                target="_blank"
+                style="display:inline-block;background:#dc2626;color:#ffffff;font-size:14px;font-weight:800;text-decoration:none;padding:14px 36px;border-radius:12px;letter-spacing:0.02em;box-shadow:0 4px 14px rgba(220,38,38,0.35);"
+              >
+                Ver alerta en SIGMAFAM →
+              </a>
+              <p style="margin:12px 0 0;font-size:11px;color:#94a3b8;">Alerta #${alertId} · Accede a la plataforma para gestionarla</p>
+            </td>
+          </tr>
+
+          <!-- Divisor -->
+          <tr>
+            <td style="padding:0 32px;">
+              <hr style="border:none;border-top:1px solid #f1f5f9;margin:0;" />
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">
+                Recibiste este correo porque formas parte de un grupo familiar en <strong>SIGMAFAM</strong>.
+              </p>
+              <p style="margin:0;font-size:11px;color:#cbd5e1;">
+                © 2026 SIGMAFAM · Sistema Integral de Seguridad Familiar · CETI Tonalá
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `.trim();
+
+    // 5. Enviar a cada miembro del grupo
+    for (const member of recipients) {
+      try {
+        await resend.emails.send({
+          from: "SIGMAFAM Alertas <noreply@castoresceti.com>",
+          to: member.email,
+          subject: `⚠️ ${userName} activó una alerta de emergencia`,
+          html: buildHtml(member.full_name),
+        });
+        console.log(`[Email] Alerta #${alertId} enviada a ${member.email}`);
+      } catch (err) {
+        console.error(`[Email] Error al enviar a ${member.email}:`, err.message);
+      }
+    }
+  } catch (e) {
+    console.error("[Email] Error general:", e.message);
+  }
+}
+
+/**
  * Devuelve los IDs de usuarios relevantes para el scope del usuario autenticado.
  * - Si tiene grupo familiar → todos los miembros del grupo
  * - Si no tiene grupo → solo él mismo
@@ -710,11 +918,13 @@ app.post("/api/v1/alerts", authRequired, async (req, res) => {
 
     await conn.commit();
 
-    // Enviar mensajes de emergencia en background
+    // Enviar notificaciones en background (WhatsApp + Email)
     const [userRows] = await pool.execute(
       `SELECT full_name FROM users WHERE id = :userId LIMIT 1`, { userId }
     );
-    sendEmergencyMessages(userId, userRows[0]?.full_name ?? "Un usuario", lat, lng);
+    const userName = userRows[0]?.full_name ?? "Un usuario";
+    sendEmergencyMessages(userId, userName, lat, lng);
+    sendEmergencyEmails(userId, userName, alertId, lat, lng, "WEB");
 
     return res.status(201).json({ alert_id: alertId });
   } catch (e) {
@@ -862,11 +1072,13 @@ app.post("/api/v1/iot/alert", async (req, res) => {
       await auditLog("IOT_ALERT", device.user_id,
         `Alerta IoT recibida del dispositivo ${device_uid}`, { device_uid, alertId });
 
-      // Enviar mensajes de emergencia en background
+      // Enviar notificaciones en background (WhatsApp + Email)
       const [userRows] = await pool.execute(
         `SELECT full_name FROM users WHERE id = :userId LIMIT 1`, { userId: device.user_id }
       );
-      sendEmergencyMessages(device.user_id, userRows[0]?.full_name ?? "Un usuario", lat, lng);
+      const userName = userRows[0]?.full_name ?? "Un usuario";
+      sendEmergencyMessages(device.user_id, userName, lat, lng);
+      sendEmergencyEmails(device.user_id, userName, alertId, lat, lng, "IOT");
 
       return res.status(201).json({ ok: true, alert_id: alertId, message: "Alerta registrada correctamente" });
     } catch (e) {
