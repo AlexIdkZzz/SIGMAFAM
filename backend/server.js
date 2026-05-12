@@ -1263,6 +1263,71 @@ app.post("/api/v1/family/create", authRequired, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/v1/family/join
+ * Une al usuario autenticado a un grupo familiar usando el código de invitación.
+ * Body: { invite_code }
+ */
+app.post("/api/v1/family/join", authRequired, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { invite_code } = req.body || {};
+
+    if (!invite_code?.trim())
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    // Verificar que el usuario no esté ya en un grupo
+    const [userRows] = await pool.execute(
+      `SELECT family_group_id FROM users WHERE id = :userId LIMIT 1`,
+      { userId }
+    );
+    if (userRows[0]?.family_group_id)
+      return res.status(409).json({ error: "ALREADY_IN_GROUP" });
+
+    // Buscar el grupo por código de invitación
+    const [groupRows] = await pool.execute(
+      `SELECT id FROM family_groups WHERE invite_code = :invite_code LIMIT 1`,
+      { invite_code: invite_code.trim() }
+    );
+    if (!groupRows.length)
+      return res.status(404).json({ error: "INVALID_CODE" });
+
+    const groupId = groupRows[0].id;
+
+    // Verificar que el grupo no esté lleno (máximo 6 miembros)
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM users WHERE family_group_id = :groupId`,
+      { groupId }
+    );
+    if (Number(countRows[0].total) >= 6)
+      return res.status(409).json({ error: "GROUP_FULL" });
+
+    // Unir al usuario al grupo
+    await pool.execute(
+      `UPDATE users SET role = 'MIEMBRO', family_group_id = :groupId WHERE id = :userId`,
+      { groupId, userId }
+    );
+
+    await auditLog("FAMILY_JOIN", userId, `Usuario #${userId} se unió al grupo #${groupId}`, { groupId });
+
+    // Emitir nuevo token con el rol actualizado
+    const [[updatedUser]] = await pool.execute(
+      `SELECT id, email, full_name, role FROM users WHERE id = :userId LIMIT 1`,
+      { userId }
+    );
+    const access_token = jwt.sign(
+      { id: updatedUser.id, email: updatedUser.email, fullName: updatedUser.full_name, role: updatedUser.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({ ok: true, group_id: groupId, access_token });
+  } catch (e) {
+    console.error("[Family/Join]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 app.get("/api/v1/family", authRequired, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1290,53 +1355,8 @@ app.get("/api/v1/family", authRequired, async (req, res) => {
       group: {
         id:          group.id,
         name:        group.name,
-        invite_code: group.invite_code, // <-- MANDAMOS EL CÓDIGO SIEMPRE
-        owner_id:    group.owner_id,    // <-- MANDAMOS QUIÉN LO CREÓ
-        created_at:  group.created_at,
-        members:     members.map((m) => ({
-          id:        m.id,
-          fullName:  m.full_name,
-          email:     m.email,
-          role:      m.role,
-          joinedAt:  m.created_at,
-        })),
-      },
-    });
-  } catch (e) {
-    console.error("[Family/Get]", e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
-  }
-});
-
-app.get("/api/v1/family", authRequired, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const [userRows] = await pool.execute(
-      `SELECT family_group_id, role FROM users WHERE id = :userId LIMIT 1`,
-      { userId }
-    );
-    const u = userRows[0];
-    if (!u?.family_group_id)
-      return res.json({ group: null });
-
-    const [groupRows] = await pool.execute(
-      `SELECT id, name, invite_code, created_at FROM family_groups WHERE id = :id LIMIT 1`,
-      { id: u.family_group_id }
-    );
-    const group = groupRows[0];
-
-    const [members] = await pool.execute(
-      `SELECT id, full_name, email, role, created_at
-       FROM users WHERE family_group_id = :groupId ORDER BY created_at ASC`,
-      { groupId: group.id }
-    );
-
-    return res.json({
-      group: {
-        id:          group.id,
-        name:        group.name,
-        invite_code: u.role === "JEFE_FAMILIA" ? group.invite_code : null,
+        invite_code: group.invite_code,
+        owner_id:    group.owner_id,
         created_at:  group.created_at,
         members:     members.map((m) => ({
           id:        m.id,
