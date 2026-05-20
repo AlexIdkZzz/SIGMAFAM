@@ -947,6 +947,7 @@ app.get("/api/v1/alerts/:id", authRequired, async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT
          a.id, a.source, a.status, a.created_at, a.closed_at,
+         a.battery,
          u.full_name AS user_name, u.email AS user_email,
          fg.name AS group_name,
          d.device_uid,
@@ -975,6 +976,7 @@ app.get("/api/v1/alerts/:id", authRequired, async (req, res) => {
         status:    r.status,
         createdAt: r.created_at,
         closedAt:  r.closed_at ?? null,
+        battery:   r.battery != null ? Number(r.battery) : null,
         user:      { name: r.user_name, email: r.user_email },
         group:     r.group_name ?? null,
         device:    r.device_uid ?? null,
@@ -1025,10 +1027,15 @@ app.patch("/api/v1/alerts/:id/status", authRequired, async (req, res) => {
 
 app.post("/api/v1/iot/alert", async (req, res) => {
   try {
-    const { device_uid, lat, lng } = req.body || {};
+    const { device_uid, lat, lng, battery } = req.body || {};
 
     if (!device_uid)
       return res.status(400).json({ error: "MISSING_FIELDS" });
+
+    // battery debe ser entero 0-100; si no viene o es inválido se guarda NULL
+    const batteryVal = (typeof battery === "number" && battery >= 0 && battery <= 100)
+      ? Math.round(battery)
+      : null;
 
     const [devRows] = await pool.execute(
       `SELECT id, user_id FROM devices
@@ -1045,8 +1052,11 @@ app.post("/api/v1/iot/alert", async (req, res) => {
       return res.status(403).json({ error: "DEVICE_NOT_CLAIMED" });
 
     await pool.execute(
-      `UPDATE devices SET last_seen_at = CURRENT_TIMESTAMP WHERE id = :id`,
-      { id: device.id }
+      `UPDATE devices
+       SET last_seen_at  = CURRENT_TIMESTAMP,
+           battery_level = :batteryVal
+       WHERE id = :id`,
+      { id: device.id, batteryVal }
     );
 
     const conn = await pool.getConnection();
@@ -1054,9 +1064,9 @@ app.post("/api/v1/iot/alert", async (req, res) => {
       await conn.beginTransaction();
 
       const [ins] = await conn.execute(
-        `INSERT INTO alerts (user_id, device_id, source, status)
-         VALUES (:userId, :deviceId, 'IOT', 'RECEIVED')`,
-        { userId: device.user_id, deviceId: device.id }
+        `INSERT INTO alerts (user_id, device_id, source, status, battery)
+         VALUES (:userId, :deviceId, 'IOT', 'RECEIVED', :batteryVal)`,
+        { userId: device.user_id, deviceId: device.id, batteryVal }
       );
       const alertId = ins.insertId;
 

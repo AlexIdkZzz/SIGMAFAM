@@ -133,6 +133,20 @@ function AlertDetailPanel({ detail, loading, onChangeStatus }) {
             label="Identificador (UID)"
             value={detail.device ?? "No disponible"}
           />
+          <InfoRow
+            label="Batería al disparar"
+            value={
+              detail.battery != null ? (
+                <span className={
+                  detail.battery > 50 ? "text-green-400 font-semibold" :
+                  detail.battery > 20 ? "text-yellow-400 font-semibold" :
+                                        "text-red-400 font-semibold"
+                }>
+                  {detail.battery}%
+                </span>
+              ) : "No disponible"
+            }
+          />
         </SectionBlock>
       )}
 
