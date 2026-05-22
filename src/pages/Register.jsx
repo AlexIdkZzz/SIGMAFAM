@@ -105,13 +105,14 @@ export default function Register() {
       </button>
 
       {/* ── LEFT: Formulario ── */}
-      <div className={`w-full lg:w-[480px] lg:min-w-[480px] flex flex-col justify-center
+      <div className={`w-full lg:w-[480px] lg:min-w-[480px] flex flex-col
         min-h-screen
         px-5 sm:px-10 lg:px-16
-        py-16 sm:py-12
+        pt-16 sm:pt-12 pb-8
         z-10 transition-colors duration-500
         ${d ? "bg-[#0d1426] lg:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)]" : "bg-white lg:shadow-2xl"}`}>
 
+        <div className="flex-1 flex flex-col justify-center">
         <div className="max-w-sm w-full mx-auto">
 
           {/* Logo */}
@@ -362,6 +363,48 @@ export default function Register() {
             </Link>
           </p>
         </div>
+        </div>{/* fin flex-1 */}
+
+        {/* ── Pie legal ── */}
+        <div className="max-w-sm w-full mx-auto mt-8 pt-6"
+          style={{ borderTop: `1px dashed ${d ? "rgba(99,116,143,0.3)" : "#e2e8f0"}` }}
+        >
+          <p className={`text-center text-[11px] leading-relaxed font-medium ${d ? "text-slate-500" : "text-slate-400"}`}>
+            Al crear una cuenta aceptas nuestros{" "}
+            <Link
+              to="/terminos"
+              className={`font-bold underline underline-offset-2 transition-colors
+                ${d ? "text-slate-300 hover:text-white" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              Términos de Servicio
+            </Link>{" "}
+            y nuestra{" "}
+            <Link
+              to="/privacidad"
+              className={`font-bold underline underline-offset-2 transition-colors
+                ${d ? "text-slate-300 hover:text-white" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              Política de Privacidad
+            </Link>
+            . El uso de la plataforma implica el tratamiento de datos personales
+            conforme a la{" "}
+            <a
+              href="https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`font-bold underline underline-offset-2 transition-colors
+                ${d ? "text-slate-300 hover:text-white" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              Ley Federal de Protección de Datos (LFPDPPP)
+            </a>
+            .
+          </p>
+          <p className={`text-center text-[10px] font-semibold mt-3 tracking-wide
+            ${d ? "text-slate-600" : "text-slate-300"}`}>
+            © 2026 SIGMAFAM · CETI Tonalá · Todos los derechos reservados
+          </p>
+        </div>
+
       </div>
 
       {/* ── RIGHT: Decorativo — solo en desktop ── */}

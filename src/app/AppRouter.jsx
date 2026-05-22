@@ -8,6 +8,8 @@ import Register from "../pages/Register";
 import Verify from "../pages/Verify";
 import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
+import Terms from "../pages/Terms";
+import Privacy from "../pages/Privacy";
 import Dashboard from "../pages/Dashboard";
 import Alerts from "../pages/Alerts";
 import MapLive from "../pages/MapLive";
@@ -31,6 +33,8 @@ export default function AppRouter() {
       <Route path="/verify"          element={<Verify />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password"  element={<ResetPassword />} />
+      <Route path="/terminos"        element={<Terms />} />
+      <Route path="/privacidad"      element={<Privacy />} />
 
       {/* Panel Admin — layout propio */}
       <Route

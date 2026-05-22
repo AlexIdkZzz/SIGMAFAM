@@ -206,25 +206,27 @@ const Login = () => {
         >
           <p className={`text-center text-[11px] leading-relaxed font-medium ${d ? "text-slate-500" : "text-slate-400"}`}>
             Al crear una cuenta aceptas nuestros{" "}
-            <a
-              href="#"
+            <Link
+              to="/terminos"
               className={`font-bold underline underline-offset-2 transition-colors
                 ${d ? "text-slate-300 hover:text-white" : "text-slate-600 hover:text-slate-900"}`}
             >
               Términos de Servicio
-            </a>{" "}
+            </Link>{" "}
             y nuestra{" "}
-            <a
-              href="#"
+            <Link
+              to="/privacidad"
               className={`font-bold underline underline-offset-2 transition-colors
                 ${d ? "text-slate-300 hover:text-white" : "text-slate-600 hover:text-slate-900"}`}
             >
               Política de Privacidad
-            </a>
+            </Link>
             . El uso de la plataforma implica el tratamiento de datos personales
             conforme a la{" "}
             <a
-              href="#"
+              href="https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
               className={`font-bold underline underline-offset-2 transition-colors
                 ${d ? "text-slate-300 hover:text-white" : "text-slate-600 hover:text-slate-900"}`}
             >
