@@ -147,7 +147,10 @@ export default function Dashboard() {
                     <StatusBadge status={latestActive.status} />
                   </div>
                   <div className="text-xs sm:text-sm font-medium truncate text-red-700 dark:text-red-300/80">
-                    <span className="font-bold">{latestActive.user}</span> · {latestActive.source} · Lat {latestActive.lastLocation.lat.toFixed(4)} / Lng {latestActive.lastLocation.lng.toFixed(4)}
+                    <span className="font-bold">{latestActive.user}</span> · {latestActive.source}
+                    {latestActive.lastLocation
+                      ? ` · Lat ${latestActive.lastLocation.lat.toFixed(4)} / Lng ${latestActive.lastLocation.lng.toFixed(4)}`
+                      : " · Ubicación no disponible"}
                   </div>
                 </div>
               </div>
