@@ -344,11 +344,18 @@ export default function Settings() {
         method: "POST", headers: authHeaders(token),
         body: JSON.stringify({ type: ticketType, description: ticketDesc }),
       });
-      if (!res.ok) throw new Error();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msgs = {
+          INVALID_TYPE:  "Tipo de solicitud no válido.",
+          SERVER_ERROR:  "Error interno del servidor. Intenta de nuevo.",
+        };
+        return setTicketStatus({ type: "error", msg: msgs[data.error] ?? "No se pudo enviar el ticket. Intenta de nuevo." });
+      }
       setTicketType(""); setTicketDesc("");
       setTicketStatus({ type: "success", msg: "¡Ticket enviado! El equipo lo revisará pronto." });
     } catch {
-      setTicketStatus({ type: "error", msg: "No se pudo enviar el ticket. Intenta de nuevo." });
+      setTicketStatus({ type: "error", msg: "No se pudo conectar con el servidor." });
     } finally {
       setTicketLoading(false);
     }
