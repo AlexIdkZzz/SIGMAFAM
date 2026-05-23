@@ -2077,20 +2077,48 @@ const TICKET_TYPES = [
   "CHANGE_PASSWORD", "BUG_REPORT", "OTHER",
 ];
 
-// Crear tabla al iniciar si no existe (pool.query para DDL, no execute)
-pool.query(`
-  CREATE TABLE IF NOT EXISTS tickets (
-    id           INT AUTO_INCREMENT PRIMARY KEY,
-    user_id      INT NOT NULL,
-    type         VARCHAR(50) NOT NULL,
-    description  TEXT,
-    status       ENUM('OPEN','IN_PROGRESS','CLOSED') DEFAULT 'OPEN',
-    admin_note   TEXT,
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  )
-`).catch((e) => console.error("[Tickets/Init]", e));
+// Crear tabla al iniciar si no existe
+async function ensureTicketsTable() {
+  // Intento 1: con Foreign Key
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tickets (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        user_id      INT NOT NULL,
+        type         VARCHAR(50) NOT NULL,
+        description  TEXT,
+        status       ENUM('OPEN','IN_PROGRESS','CLOSED') DEFAULT 'OPEN',
+        admin_note   TEXT,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    console.log("[Tickets/Init] Tabla tickets lista (con FK).");
+    return;
+  } catch (e) {
+    console.warn("[Tickets/Init] Fallo con FK, reintentando sin FK:", e.message);
+  }
+  // Intento 2: sin Foreign Key (por si el engine no soporta FK)
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tickets (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        user_id      INT NOT NULL,
+        type         VARCHAR(50) NOT NULL,
+        description  TEXT,
+        status       ENUM('OPEN','IN_PROGRESS','CLOSED') DEFAULT 'OPEN',
+        admin_note   TEXT,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("[Tickets/Init] Tabla tickets lista (sin FK).");
+  } catch (e) {
+    console.error("[Tickets/Init] Error crítico al crear tabla tickets:", e.message);
+  }
+}
+ensureTicketsTable();
 
 // Crear ticket
 app.post("/api/v1/tickets", authRequired, async (req, res) => {
@@ -2100,15 +2128,15 @@ app.post("/api/v1/tickets", authRequired, async (req, res) => {
       return res.status(400).json({ error: "INVALID_TYPE" });
 
     const [r] = await pool.execute(
-      `INSERT INTO tickets (user_id, type, description) VALUES (:userId, :type, :description)`,
-      { userId: req.user.id, type, description: description?.trim() || null }
+      `INSERT INTO tickets (user_id, type, description) VALUES (?, ?, ?)`,
+      [req.user.id, type, description?.trim() || null]
     );
     await auditLog("TICKET_CREATED", req.user.id,
       `Ticket #${r.insertId} (${type})`, { ticketId: r.insertId });
     return res.status(201).json({ ticket_id: r.insertId });
   } catch (e) {
-    console.error("[Tickets/Create]", e);
-    return res.status(500).json({ error: "SERVER_ERROR" });
+    console.error("[Tickets/Create]", e.message, e.code);
+    return res.status(500).json({ error: "SERVER_ERROR", detail: e.message });
   }
 });
 
@@ -2117,8 +2145,8 @@ app.get("/api/v1/tickets/mine", authRequired, async (req, res) => {
   try {
     const [rows] = await pool.execute(
       `SELECT id, type, description, status, admin_note, created_at
-       FROM tickets WHERE user_id = :userId ORDER BY created_at DESC LIMIT 10`,
-      { userId: req.user.id }
+       FROM tickets WHERE user_id = ? ORDER BY created_at DESC LIMIT 10`,
+      [req.user.id]
     );
     return res.json({ tickets: rows });
   } catch (e) {
@@ -2132,8 +2160,8 @@ app.get("/api/v1/admin/tickets", authRequired, adminRequired, async (req, res) =
   try {
     const status = req.query.status?.toUpperCase();
     const validStatus = ["OPEN","IN_PROGRESS","CLOSED"].includes(status ?? "");
-    const where  = validStatus ? "WHERE t.status = :status" : "";
-    const params = validStatus ? { status } : {};
+    const where  = validStatus ? "WHERE t.status = ?" : "";
+    const params = validStatus ? [status] : [];
 
     const [rows] = await pool.execute(
       `SELECT t.id, t.type, t.description, t.status, t.admin_note, t.created_at, t.updated_at,
@@ -2162,10 +2190,10 @@ app.patch("/api/v1/admin/tickets/:id", authRequired, adminRequired, async (req, 
 
     await pool.execute(
       `UPDATE tickets
-       SET status     = COALESCE(:status, status),
-           admin_note = COALESCE(:adminNote, admin_note)
-       WHERE id = :id`,
-      { status: status ?? null, adminNote: admin_note ?? null, id }
+       SET status     = COALESCE(?, status),
+           admin_note = COALESCE(?, admin_note)
+       WHERE id = ?`,
+      [status ?? null, admin_note ?? null, id]
     );
     return res.json({ ok: true });
   } catch (e) {
