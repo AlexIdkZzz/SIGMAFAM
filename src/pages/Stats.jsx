@@ -5,7 +5,7 @@ import {
   Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import {
-  MapContainer, TileLayer, Circle, Tooltip as MapTooltip, GeoJSON,
+  MapContainer, TileLayer, GeoJSON,
 } from "react-leaflet";
 import {
   TrendingUp, Activity, CheckCircle2, Clock,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { PageShell, Card } from "./_ui";
 import { useAuth } from "../app/auth/AuthContext";
+import HeatmapLayer from "../app/maps/HeatmapLayer";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
@@ -98,8 +99,60 @@ function ChartTooltip({ active, payload, label, dark }) {
   );
 }
 
+function HeatLegend() {
+  return (
+    <div className="absolute bottom-5 left-4 z-[500] pointer-events-none">
+      <div className="bg-white/90 dark:bg-[#050a18]/95 backdrop-blur-xl border border-white/60 dark:border-slate-800 rounded-2xl px-4 py-3 shadow-2xl">
+        <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2">
+          Nivel de Incidencia
+        </p>
+        <div
+          className="h-2.5 w-28 rounded-full mb-1.5"
+          style={{ background: "linear-gradient(to right, #00e676, #ffee58, #ff9800, #f44336, #b71c1c)" }}
+        />
+        <div className="flex justify-between text-[8px] font-black text-slate-400 w-28">
+          <span>BAJO</span>
+          <span>MEDIO</span>
+          <span>ALTO</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScopedHeatmap({ points, maxIntensity, radius = 58, opacity = 0.85 }) {
+  if (!points.length) return null;
+  return (
+    <HeatmapLayer
+      points={points}
+      radius={radius}
+      maxInt={maxIntensity}
+      opacity={opacity}
+    />
+  );
+}
+
+function getHeatPoints(hotspots = []) {
+  return hotspots
+    .map((h) => ({
+      lat: Number(h.lat),
+      lng: Number(h.lng),
+      intensity: Number(h.intensity) || 1,
+    }))
+    .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lng));
+}
+
+function getMaxIntensity(points) {
+  return points.length
+    ? Math.max(Math.max(...points.map((p) => Number(p.intensity))), 5)
+    : 5;
+}
+
 // ── Overlay mapa de riesgo ───────────────────────────────────────────
 function RiskMapOverlay({ hotspots, onClose }) {
+  const heatPoints = getHeatPoints(hotspots);
+  const maxIntensity = getMaxIntensity(heatPoints);
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#020617", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 24px", background: "#0f172a", borderBottom: "1px solid #1e293b" }}>
@@ -108,10 +161,10 @@ function RiskMapOverlay({ hotspots, onClose }) {
         </button>
         <Shield size={15} color="#f87171" />
         <span style={{ color: "#fff", fontWeight: 900, fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-          Zonas de Riesgo · Mapa Detallado
+          Mapa de Calor - Grupo Familiar / Cuenta
         </span>
       </div>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, position: "relative" }}>
         <MapContainer
           center={[
             COLONIAS_GEOJSON.features[0].geometry.coordinates[0][0][1],
@@ -122,27 +175,9 @@ function RiskMapOverlay({ hotspots, onClose }) {
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <GeoJSON data={COLONIAS_GEOJSON} style={geoJsonStyle} />
-          {(hotspots ?? [])
-            .filter(h => !isNaN(Number(h.lat)) && !isNaN(Number(h.lng)))
-            .map((h, i) => {
-              const intensity = Number(h.intensity) || 0;
-              return (
-                <Circle
-                  key={i}
-                  center={[Number(h.lat), Number(h.lng)]}
-                  radius={Math.max(50, intensity * 120)}
-                  pathOptions={{
-                    color: "#ef4444",
-                    fillColor: "#ef4444",
-                    fillOpacity: Math.max(0.1, Math.min(0.35, intensity * 0.05)),
-                    weight: 0,
-                  }}
-                >
-                  <MapTooltip>ZONA CRÍTICA: {intensity} alertas</MapTooltip>
-                </Circle>
-              );
-            })}
+          <ScopedHeatmap points={heatPoints} maxIntensity={maxIntensity} radius={72} opacity={0.88} />
         </MapContainer>
+        <HeatLegend />
       </div>
     </div>
   );
@@ -229,6 +264,9 @@ export default function Stats() {
   const criticas      = (statusMap.ACTIVE || 0) + (statusMap.RECEIVED || 0);
   const atendidas     = statusMap.ATTENDED || 0;
   const cerradas      = statusMap.CLOSED   || 0;
+  const heatPoints    = getHeatPoints(data.hotspots);
+  const maxIntensity  = getMaxIntensity(heatPoints);
+  const totalIncidents = heatPoints.reduce((sum, point) => sum + Number(point.intensity), 0);
 
   // Colores de la gráfica según tema
   const gridColor   = isDark ? "#1e293b" : "#f1f5f9";
@@ -360,27 +398,26 @@ export default function Stats() {
         </div>
 
         {/* ── Mapa de incidencia ── */}
-        <Card title="Mapa de Incidencia · Guadalajara" className="bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 p-0">
+        <Card title="Mapa de Calor - Incidencias" className="bg-white dark:bg-[#0d1426] border-slate-200 dark:border-slate-800 p-0">
           <div className="px-5 pt-4 pb-0">
             <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 mb-3">
-              DISTRIBUCIÓN GEOGRÁFICA DE ALERTAS ACTIVAS
+              ALERTAS DEL GRUPO FAMILIAR O CUENTA PERSONAL
             </p>
           </div>
-          <div className="rounded-b-2xl overflow-hidden" style={{ height: 380 }}>
+          <div className="rounded-b-2xl overflow-hidden relative" style={{ height: 380 }}>
             <MapContainer center={[20.64, -103.33]} zoom={11} style={{ height: "100%", width: "100%" }}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <GeoJSON data={COLONIAS_GEOJSON} style={geoJsonStyle} />
-              {(data.hotspots ?? [])
-                .filter(h => !isNaN(Number(h.lat)) && !isNaN(Number(h.lng)))
-                .map((h, i) => (
-                  <Circle
-                    key={i}
-                    center={[Number(h.lat), Number(h.lng)]}
-                    radius={150}
-                    pathOptions={{ color: "#ef4444", fillColor: "#ef4444", fillOpacity: 0.3, weight: 1 }}
-                  />
-                ))}
+              <ScopedHeatmap points={heatPoints} maxIntensity={maxIntensity} />
             </MapContainer>
+            <HeatLegend />
+            <div className="absolute top-4 right-4 z-[500] pointer-events-none">
+              <div className="bg-slate-900/85 dark:bg-[#050a18]/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 shadow-xl">
+                <p className="text-[9px] font-black text-white uppercase tracking-[0.15em]">
+                  {totalIncidents} incidencias
+                </p>
+              </div>
+            </div>
           </div>
           <div className="p-4">
             <button
@@ -388,7 +425,7 @@ export default function Stats() {
               className="w-full py-3 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-lg"
             >
               <Maximize2 size={13} />
-              Ver mapa de riesgo detallado
+              Ver mapa de calor detallado
             </button>
           </div>
         </Card>
