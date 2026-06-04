@@ -45,18 +45,31 @@ export function AlertsProvider({ children }) {
   }, [refreshActive]);
 
   // ── Simular alerta (crea en backend) ──────────────────────────────────────
-  async function simulateIncomingAlert() {
-    if (!token) return;
+  async function createWebAlert({ lat, lng }) {
+    if (!token) return null;
     try {
-      const lat = 20.72 + (Math.random() - 0.5) * 0.03;
-      const lng = -103.41 + (Math.random() - 0.5) * 0.03;
       const res = await fetch(`${API_BASE}/alerts`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ lat, lng }),
       });
-      if (!res.ok) throw new Error("Error al simular alerta");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al crear alerta");
       await refreshActive();
+      if (data.alert_id) setSelectedId(data.alert_id);
+      return data;
+    } catch (e) {
+      setError(e.message);
+      throw e;
+    }
+  }
+
+  async function simulateIncomingAlert() {
+    if (!token) return;
+    try {
+      const lat = 20.72 + (Math.random() - 0.5) * 0.03;
+      const lng = -103.41 + (Math.random() - 0.5) * 0.03;
+      await createWebAlert({ lat, lng });
     } catch (e) {
       setError(e.message);
     }
@@ -122,6 +135,7 @@ export function AlertsProvider({ children }) {
       detailLoading,
       selectAlert,
       refreshActive,
+      createWebAlert,
       simulateIncomingAlert,
       markAttended,
       closeAlert,

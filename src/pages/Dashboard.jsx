@@ -1,10 +1,10 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAlerts } from "../app/alerts/AlertsContext";
 import {
   Shield, AlertTriangle, Activity, Bell, Map as MapIcon,
   CheckCircle2, Clock, Cpu, Users, TrendingUp,
-  Radio, Zap, Eye, ChevronRight, ArrowRight
+  Radio, Zap, Eye, ChevronRight, ArrowRight, Siren, LocateFixed, Loader2
 } from "lucide-react";
 
 function StatusBadge({ status }) {
@@ -87,9 +87,135 @@ function QuickAction({ icon: Icon, label, onClick, primary = false }) {
   );
 }
 
+const ALERT_COOLDOWN_MS = 60 * 1000;
+const ALERT_COOLDOWN_KEY = "sigmafam_last_web_alert_at";
+
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Este navegador no permite obtener ubicación."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    });
+  });
+}
+
+function formatCooldown(ms) {
+  return Math.max(1, Math.ceil(ms / 1000));
+}
+
+function EmergencyAlertButton({ onCreateAlert }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("info");
+  const [cooldownMs, setCooldownMs] = useState(0);
+
+  const syncCooldown = useCallback(() => {
+    const lastAlertAt = Number(localStorage.getItem(ALERT_COOLDOWN_KEY) || 0);
+    const remaining = Math.max(0, ALERT_COOLDOWN_MS - (Date.now() - lastAlertAt));
+    setCooldownMs(remaining);
+  }, []);
+
+  useEffect(() => {
+    syncCooldown();
+    const id = window.setInterval(syncCooldown, 1000);
+    return () => window.clearInterval(id);
+  }, [syncCooldown]);
+
+  async function handleAlert() {
+    if (busy || cooldownMs > 0) return;
+
+    setBusy(true);
+    setMessageTone("info");
+    setMessage("Solicitando ubicación del dispositivo...");
+
+    try {
+      const position = await getCurrentPosition();
+      const { latitude, longitude } = position.coords;
+
+      await onCreateAlert({ lat: latitude, lng: longitude });
+
+      localStorage.setItem(ALERT_COOLDOWN_KEY, String(Date.now()));
+      syncCooldown();
+      setMessageTone("success");
+      setMessage("Alerta activada con la ubicación actual.");
+    } catch (e) {
+      const permissionDenied = e.code === 1;
+      setMessageTone("error");
+      setMessage(
+        permissionDenied
+          ? "Permite el acceso a la ubicación para activar la alerta."
+          : e.message || "No se pudo activar la alerta."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const isCoolingDown = cooldownMs > 0;
+  const disabled = busy || isCoolingDown;
+  const toneClass = {
+    info: "text-amber-700 dark:text-amber-300",
+    success: "text-emerald-700 dark:text-emerald-300",
+    error: "text-red-700 dark:text-red-300",
+  }[messageTone];
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border p-4 sm:p-5 bg-gradient-to-br from-amber-100 via-orange-50 to-white dark:from-amber-500/20 dark:via-orange-500/10 dark:to-[#0f1628] border-amber-300 dark:border-amber-500/30 shadow-lg shadow-amber-500/10">
+      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-red-500/20 blur-3xl pointer-events-none" />
+      <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="relative shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-red-600 text-white shadow-lg shadow-red-600/25">
+            <Siren size={22} />
+            {!disabled && <span className="absolute inset-0 rounded-2xl animate-ping bg-red-500/30" />}
+          </div>
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
+              Botón de emergencia
+            </div>
+            <div className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+              Generar alerta con ubicación actual
+            </div>
+            <p className="mt-1 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Se pedirá la ubicación de este dispositivo y se guardará junto con la alerta.
+            </p>
+            {message && (
+              <p className={`mt-2 text-xs font-black uppercase tracking-wide ${toneClass}`}>
+                {message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleAlert}
+          disabled={disabled}
+          className="group relative overflow-hidden shrink-0 inline-flex min-w-[220px] items-center justify-center gap-2 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.16em] text-white bg-gradient-to-r from-red-600 via-orange-600 to-amber-500 shadow-xl shadow-red-500/25 ring-2 ring-red-500/20 transition-all hover:-translate-y-0.5 hover:shadow-red-500/35 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0"
+        >
+          <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out pointer-events-none bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+          {busy ? <Loader2 size={18} className="relative z-10 animate-spin" /> : <LocateFixed size={18} className="relative z-10" />}
+          <span className="relative z-10">
+            {busy
+              ? "Ubicando..."
+              : isCoolingDown
+                ? `Espera ${formatCooldown(cooldownMs)}s`
+                : "Activar alerta"}
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const nav = useNavigate();
-  const { alerts, selected } = useAlerts();
+  const { alerts, selected, createWebAlert } = useAlerts();
 
   const activeAlerts = useMemo(() => alerts.filter((a) => a.status === "ACTIVE" || a.status === "RECEIVED"), [alerts]);
   const latestActive = activeAlerts[0] ?? null;
@@ -130,6 +256,8 @@ export default function Dashboard() {
         </div>
 
         {/* ── Banner ── */}
+        <EmergencyAlertButton onCreateAlert={createWebAlert} />
+
         {latestActive ? (
           <div className="relative overflow-hidden rounded-2xl border p-4 sm:p-5 bg-gradient-to-br from-red-50 to-white dark:from-red-950/60 dark:to-[#0f1628] border-red-200 dark:border-red-500/30">
             <div className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%)", filter: "blur(30px)" }} />
