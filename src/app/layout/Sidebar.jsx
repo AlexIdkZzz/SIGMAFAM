@@ -53,9 +53,7 @@ export default function Sidebar({ onNavigate }) {
       <div className="mt-4 px-3 py-2 text-xs text-slate-500 leading-relaxed">
         <div>Proyecto de titulación CETI Tonalá 2026</div>
         <div>Yael De Alba 21300160</div>
-        <div>Francisco Yañez 22300208</div>
-        <div>Uziel Noriega 22300232</div>
-        <div>Cristian Oñate 22300198</div>
+        <div>¡Hola, maestro! c:</div>
       </div>
     </aside>
   );

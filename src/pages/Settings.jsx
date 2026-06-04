@@ -222,8 +222,8 @@ function LegalView({ onBack, onGoToManual }) {
             <TermItem number="•">Tus datos <strong className="text-slate-700 dark:text-slate-300">no se venden ni comparten</strong> con terceros, salvo la Meta WhatsApp API para el envío de alertas.</TermItem>
             <TermItem number="•">Los miembros de tu grupo familiar pueden ver las alertas generadas dentro del grupo.</TermItem>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-500 dark:text-violet-400 mt-5 mb-2">4. Seguridad</p>
-            <TermItem number="•">Contraseñas almacenadas con hash bcrypt. Nunca en texto plano.</TermItem>
-            <TermItem number="•">Comunicación vía HTTPS con tokens JWT de sesión.</TermItem>
+            <TermItem number="•">Las contraseñas almacenadas son encriptadas con métodos avanzados. Nunca en texto plano.</TermItem>
+            <TermItem number="•">Comunicación encriptada y segura con tokens de sesión.</TermItem>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-500 dark:text-violet-400 mt-5 mb-2">5. Tus derechos</p>
             <TermItem number="•">Puedes solicitar la eliminación de tu cuenta escribiendo a <strong className="text-slate-700 dark:text-slate-300">sigmafam@castoresceti.com</strong> o desde Configuración.</TermItem>
             <TermItem number="•">Sin cookies de rastreo ni analítica de terceros.</TermItem>
