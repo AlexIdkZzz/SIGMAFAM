@@ -7,10 +7,21 @@ const { pool } = require("./db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const webpush = require("web-push");
 
 const { Resend } = require("resend");
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const hasPushConfig = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+if (hasPushConfig) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || "mailto:sigmafam@castoresceti.com",
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+} else {
+  console.warn("[Push] VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY no configuradas; push deshabilitado.");
+}
 
 const app = express();
 
@@ -19,6 +30,68 @@ app.use(express.json());
 
 // ── Health ──────────────────────────────────────────────────────────────────
 app.get("/api/v1/health", (req, res) => res.json({ ok: true }));
+
+app.get("/api/v1/push/vapid-public-key", authRequired, (req, res) => {
+  if (!process.env.VAPID_PUBLIC_KEY) {
+    return res.status(503).json({ error: "PUSH_NOT_CONFIGURED" });
+  }
+  return res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
+});
+
+app.post("/api/v1/push/subscribe", authRequired, async (req, res) => {
+  try {
+    const { subscription } = req.body || {};
+    const endpoint = subscription?.endpoint;
+    const p256dh = subscription?.keys?.p256dh;
+    const auth = subscription?.keys?.auth;
+
+    if (!endpoint || !p256dh || !auth) {
+      return res.status(400).json({ error: "INVALID_SUBSCRIPTION" });
+    }
+
+    const endpointHash = crypto.createHash("sha256").update(endpoint).digest("hex");
+    await pool.execute(
+      `INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth, user_agent)
+       VALUES (:userId, :endpoint, :endpointHash, :p256dh, :auth, :userAgent)
+       ON DUPLICATE KEY UPDATE
+         user_id = VALUES(user_id),
+         endpoint = VALUES(endpoint),
+         p256dh = VALUES(p256dh),
+         auth = VALUES(auth),
+         user_agent = VALUES(user_agent),
+         updated_at = CURRENT_TIMESTAMP`,
+      {
+        userId: req.user.id,
+        endpoint,
+        endpointHash,
+        p256dh,
+        auth,
+        userAgent: req.get("user-agent") || null,
+      }
+    );
+
+    return res.status(201).json({ ok: true });
+  } catch (e) {
+    console.error("[Push/Subscribe]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+app.delete("/api/v1/push/subscribe", authRequired, async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: "INVALID_ENDPOINT" });
+    const endpointHash = crypto.createHash("sha256").update(endpoint).digest("hex");
+    await pool.execute(
+      `DELETE FROM push_subscriptions WHERE user_id = :userId AND endpoint_hash = :endpointHash`,
+      { userId: req.user.id, endpointHash }
+    );
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[Push/Unsubscribe]", e);
+    return res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
 
 /* ═══════════════════════════ HELPERS ═══════════════════════════ */
 
@@ -340,6 +413,79 @@ async function _getScopeUserIds(userId) {
     { groupId }
   );
   return members.map((m) => m.id);
+}
+
+async function ensurePushSubscriptionsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        user_id    INT NOT NULL,
+        endpoint   TEXT NOT NULL,
+        endpoint_hash CHAR(64) NOT NULL,
+        p256dh      VARCHAR(255) NOT NULL,
+        auth       VARCHAR(255) NOT NULL,
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_push_endpoint_hash (endpoint_hash),
+        INDEX idx_push_user_id (user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    console.log("[Push/Init] Tabla push_subscriptions lista.");
+  } catch (e) {
+    console.error("[Push/Init] Error al crear tabla push_subscriptions:", e.message);
+  }
+}
+
+function _pushPayload({ alertId, userName, lat, lng, source }) {
+  const hasLocation = typeof lat === "number" && typeof lng === "number";
+  return JSON.stringify({
+    title: "SIGMAFAM - Alerta de emergencia",
+    body: `${userName} activó una alerta ${source || "WEB"}${hasLocation ? " con ubicación" : ""}.`,
+    url: "/app/alerts",
+    tag: `sigmafam-alert-${alertId}`,
+    data: {
+      alertId,
+      lat: hasLocation ? lat : null,
+      lng: hasLocation ? lng : null,
+    },
+  });
+}
+
+async function sendPushAlert(userId, userName, alertId, lat, lng, source = "WEB") {
+  if (!hasPushConfig) return;
+
+  try {
+    const userIds = await _getScopeUserIds(userId);
+    const ph = userIds.map(() => "?").join(",");
+    const [subs] = await pool.execute(
+      `SELECT id, endpoint, p256dh, auth
+       FROM push_subscriptions
+       WHERE user_id IN (${ph})`,
+      userIds
+    );
+
+    if (!subs.length) return;
+
+    const payload = _pushPayload({ alertId, userName, lat, lng, source });
+    await Promise.allSettled(subs.map(async (sub) => {
+      try {
+        await webpush.sendNotification({
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth },
+        }, payload);
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          await pool.execute(`DELETE FROM push_subscriptions WHERE id = ?`, [sub.id]);
+        } else {
+          console.error("[Push] Error al enviar:", e.message);
+        }
+      }
+    }));
+  } catch (e) {
+    console.error("[Push] Error general:", e.message);
+  }
 }
 
 async function sendVerificationEmail(email, fullName, code) {
@@ -925,6 +1071,7 @@ app.post("/api/v1/alerts", authRequired, async (req, res) => {
     const userName = userRows[0]?.full_name ?? "Un usuario";
     sendEmergencyMessages(userId, userName, lat, lng);
     sendEmergencyEmails(userId, userName, alertId, lat, lng, "WEB");
+    sendPushAlert(userId, userName, alertId, lat, lng, "WEB");
 
     return res.status(201).json({ alert_id: alertId });
   } catch (e) {
@@ -1089,6 +1236,7 @@ app.post("/api/v1/iot/alert", async (req, res) => {
       const userName = userRows[0]?.full_name ?? "Un usuario";
       sendEmergencyMessages(device.user_id, userName, lat, lng);
       sendEmergencyEmails(device.user_id, userName, alertId, lat, lng, "IOT");
+      sendPushAlert(device.user_id, userName, alertId, lat, lng, "IOT");
 
       return res.status(201).json({ ok: true, alert_id: alertId, message: "Alerta registrada correctamente" });
     } catch (e) {
@@ -2119,6 +2267,7 @@ async function ensureTicketsTable() {
   }
 }
 ensureTicketsTable();
+ensurePushSubscriptionsTable();
 
 // Crear ticket
 app.post("/api/v1/tickets", authRequired, async (req, res) => {

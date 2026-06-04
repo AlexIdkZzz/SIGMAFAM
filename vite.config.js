@@ -8,6 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate', // Hace que la app se actualice sola si cambias código
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'], // Archivos extra si los tienes
+      workbox: {
+        importScripts: ['push-handler.js'],
+      },
       manifest: {
         name: 'SIGMAFAM',
         short_name: 'SIGMAFAM',

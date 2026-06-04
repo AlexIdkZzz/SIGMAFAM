@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAlerts } from "../app/alerts/AlertsContext";
+import { useAuth } from "../app/auth/AuthContext";
 import {
   Shield, AlertTriangle, Activity, Bell, Map as MapIcon,
   CheckCircle2, Clock, Cpu, Users, TrendingUp,
   Radio, Zap, Eye, ChevronRight, ArrowRight, Siren, LocateFixed, Loader2
 } from "lucide-react";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
 function StatusBadge({ status }) {
   const map = {
@@ -213,9 +216,110 @@ function EmergencyAlertButton({ onCreateAlert }) {
   );
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
+function PushNotificationsCard({ token }) {
+  const [supported, setSupported] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const ok = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    setSupported(ok);
+    if (!ok) {
+      setMessage("Este navegador no soporta notificaciones push.");
+      return;
+    }
+
+    navigator.serviceWorker.ready
+      .then((registration) => registration.pushManager.getSubscription())
+      .then((subscription) => setEnabled(Boolean(subscription)))
+      .catch(() => setEnabled(false));
+  }, []);
+
+  async function enablePush() {
+    if (!supported || !token || busy) return;
+    setBusy(true);
+    setMessage("Preparando notificaciones...");
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setMessage("Permiso de notificaciones denegado.");
+        setEnabled(false);
+        return;
+      }
+
+      const keyRes = await fetch(`${API_BASE}/push/vapid-public-key`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const keyData = await keyRes.json();
+      if (!keyRes.ok || !keyData.publicKey) throw new Error("Push no está configurado en el servidor.");
+
+      const registration = await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      const subscription = existing || await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey),
+      });
+
+      const res = await fetch(`${API_BASE}/push/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subscription: subscription.toJSON() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "No se pudo registrar este dispositivo.");
+
+      setEnabled(true);
+      setMessage("Este dispositivo ya recibirá alertas push.");
+    } catch (e) {
+      setEnabled(false);
+      setMessage(e.message || "No se pudieron activar las notificaciones.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border p-5 bg-white dark:bg-[#0f1628] border-slate-200 dark:border-slate-800">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/15">
+          <Bell className="text-emerald-600 dark:text-emerald-400" size={15} />
+        </div>
+        <div>
+          <div className="text-sm font-black text-slate-900 dark:text-slate-100">Notificaciones push</div>
+          <div className="text-[11px] font-medium text-slate-500">Alertas en este celular</div>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={enablePush}
+        disabled={!supported || busy || enabled}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-black uppercase tracking-widest transition-all bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {busy && <Loader2 size={15} className="animate-spin" />}
+        {enabled ? "Activadas" : busy ? "Activando..." : "Activar push"}
+      </button>
+      {message && (
+        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const nav = useNavigate();
   const { alerts, selected, createWebAlert } = useAlerts();
+  const { token } = useAuth();
 
   const activeAlerts = useMemo(() => alerts.filter((a) => a.status === "ACTIVE" || a.status === "RECEIVED"), [alerts]);
   const latestActive = activeAlerts[0] ?? null;
@@ -379,6 +483,8 @@ export default function Dashboard() {
                 <QuickAction icon={Cpu}      label="Dispositivos" onClick={() => nav("/app/device")} />
               </div>
             </div>
+
+            <PushNotificationsCard token={token} />
 
             <div className="rounded-2xl border p-5 bg-white dark:bg-[#0f1628] border-slate-200 dark:border-slate-800">
               <div className="text-[10px] font-bold tracking-widest uppercase mb-2 text-slate-500">Alerta seleccionada</div>

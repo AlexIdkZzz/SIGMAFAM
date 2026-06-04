@@ -7,6 +7,7 @@ import {
   CheckCircle2, AlertCircle, ChevronRight, Shield,
   ScrollText, ShieldAlert, Mail, HelpCircle, ChevronDown,
   ExternalLink, Ticket, Trash2, ArrowLeft, FileText, BookOpen,
+  Download, Smartphone,
 } from "lucide-react";
 import ManualView from "./_manual";
 
@@ -141,6 +142,87 @@ function TermItem({ number, children }) {
 /* ═══════════════════════════════════════════════════════════ */
 /*  SUB-VISTA: LEGAL                                           */
 /* ═══════════════════════════════════════════════════════════ */
+function isStandaloneMode() {
+  return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+}
+
+function InstallPwaSection() {
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [installed, setInstalled] = useState(() => isStandaloneMode());
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    function handleBeforeInstallPrompt(e) {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setMessage("");
+    }
+
+    function handleInstalled() {
+      setInstalled(true);
+      setInstallPrompt(null);
+      setMessage("SIGMAFAM ya está instalada en este dispositivo.");
+    }
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
+
+  async function handleInstall() {
+    if (installed) {
+      setMessage("SIGMAFAM ya está instalada en este dispositivo.");
+      return;
+    }
+
+    if (!installPrompt) {
+      setMessage("Si no aparece el instalador, usa el menú del navegador y elige Agregar a pantalla de inicio o Instalar aplicación.");
+      return;
+    }
+
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    setInstallPrompt(null);
+    if (choice.outcome === "accepted") {
+      setInstalled(true);
+      setMessage("Instalación iniciada.");
+    } else {
+      setMessage("Instalación cancelada. Puedes intentarlo de nuevo desde esta sección.");
+    }
+  }
+
+  return (
+    <Section icon={Smartphone} title="Instalar SIGMAFAM" subtitle="Agrega la app al celular o PC" accent="emerald">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Usa SIGMAFAM como aplicación
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5 leading-relaxed">
+            Se abrirá sin barra del navegador y quedará disponible desde tu pantalla de inicio o escritorio.
+          </p>
+          {message && (
+            <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              {message}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleInstall}
+          className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-all shadow-sm active:scale-[0.98]"
+        >
+          <Download size={15} />
+          {installed ? "Instalada" : "Instalar app"}
+        </button>
+      </div>
+    </Section>
+  );
+}
+
 function LegalView({ onBack, onGoToManual }) {
   return (
     <div className="space-y-5">
@@ -450,6 +532,8 @@ export default function Settings() {
           </Section>
 
           {/* Sesión */}
+          <InstallPwaSection />
+
           <Section icon={LogOut} title="Sesión" subtitle="Cierra tu sesión en este dispositivo" accent="red">
             {!confirmLogout ? (
               <button onClick={() => setConfirmLogout(true)}
