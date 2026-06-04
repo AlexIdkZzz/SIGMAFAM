@@ -141,9 +141,7 @@ export default function AdminPanel() {
               </button>
               <div>Trabajo académico CETI Tonalá 2025</div>
               <div>Yael De Alba 21300160</div>
-              <div>Francisco Yañez 22300208</div>
-              <div>Uziel Noriega 22300232</div>
-              <div>Cristian Oñate 22300198</div>
+              <div>¡Hola, maestro!, ¿cómo está? c;</div>
             </div>
           </aside>
         </div>
